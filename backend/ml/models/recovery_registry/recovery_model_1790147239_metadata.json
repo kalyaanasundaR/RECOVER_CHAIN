@@ -1,0 +1,294 @@
+{
+  "model_id": "recovery_model_1790147239",
+  "task": "recovery-probability",
+  "target_column": "recovery_success",
+  "target_definition": "1 = at-risk amount recovered within the dataset's 30-day observation window",
+  "feature_columns": [
+    "amount_at_risk",
+    "age_of_obligation",
+    "customer_tenure",
+    "prior_payment_success_rate",
+    "prior_recovery_rate",
+    "prior_late_rate",
+    "number_of_previous_failed_attempts",
+    "number_of_previous_recoveries",
+    "average_days_to_payment",
+    "amount_vs_customer_average",
+    "invoice_age",
+    "payment_method_valid",
+    "customer_engagement",
+    "recent_login",
+    "reminder_history",
+    "previous_contact_success",
+    "dispute_indicator",
+    "suppression_status",
+    "domain",
+    "payment_method",
+    "account_status",
+    "consent_status",
+    "historical_recovery_behavior"
+  ],
+  "selected_model": "random_forest",
+  "status": "SELECTED",
+  "calibrated": true,
+  "candidate_results": {
+    "logistic_regression": {
+      "calibrated": true,
+      "training_time_sec": 0.071,
+      "validation_metrics": {
+        "accuracy": 0.9258426966292135,
+        "precision": 0.7419354838709677,
+        "recall": 0.2839506172839506,
+        "f1": 0.4107142857142857,
+        "confusion_matrix": {
+          "tn": 801,
+          "fp": 8,
+          "fn": 58,
+          "tp": 23
+        },
+        "positive_rate": 0.09101123595505618,
+        "roc_auc": 0.8818233148682263,
+        "pr_auc": 0.5312532466941029,
+        "brier_score": 0.05941332469616249,
+        "log_loss": 0.20561949463730123
+      },
+      "test_metrics": {
+        "accuracy": 0.9427609427609428,
+        "precision": 0.6470588235294118,
+        "recall": 0.36065573770491804,
+        "f1": 0.4631578947368421,
+        "confusion_matrix": {
+          "tn": 818,
+          "fp": 12,
+          "fn": 39,
+          "tp": 22
+        },
+        "positive_rate": 0.06846240179573512,
+        "roc_auc": 0.8902231878333005,
+        "pr_auc": 0.5198442455780365,
+        "brier_score": 0.046904395117300046,
+        "log_loss": 0.16787170368493676
+      }
+    },
+    "random_forest": {
+      "calibrated": true,
+      "training_time_sec": 0.618,
+      "validation_metrics": {
+        "accuracy": 0.9224719101123595,
+        "precision": 0.6875,
+        "recall": 0.2716049382716049,
+        "f1": 0.3893805309734513,
+        "confusion_matrix": {
+          "tn": 799,
+          "fp": 10,
+          "fn": 59,
+          "tp": 22
+        },
+        "positive_rate": 0.09101123595505618,
+        "roc_auc": 0.8688977399319386,
+        "pr_auc": 0.5387326160355921,
+        "brier_score": 0.05957340477767202,
+        "log_loss": 0.21154807312793386
+      },
+      "test_metrics": {
+        "accuracy": 0.9483726150392817,
+        "precision": 0.7777777777777778,
+        "recall": 0.3442622950819672,
+        "f1": 0.4772727272727273,
+        "confusion_matrix": {
+          "tn": 824,
+          "fp": 6,
+          "fn": 40,
+          "tp": 21
+        },
+        "positive_rate": 0.06846240179573512,
+        "roc_auc": 0.8797945881888208,
+        "pr_auc": 0.5325808863387622,
+        "brier_score": 0.047041157599288896,
+        "log_loss": 0.17336603846545995
+      }
+    },
+    "xgboost": {
+      "calibrated": true,
+      "training_time_sec": 1.46,
+      "validation_metrics": {
+        "accuracy": 0.9235955056179775,
+        "precision": 0.6857142857142857,
+        "recall": 0.2962962962962963,
+        "f1": 0.41379310344827586,
+        "confusion_matrix": {
+          "tn": 798,
+          "fp": 11,
+          "fn": 57,
+          "tp": 24
+        },
+        "positive_rate": 0.09101123595505618,
+        "roc_auc": 0.8762685223336232,
+        "pr_auc": 0.5152599128960191,
+        "brier_score": 0.06319141020836709,
+        "log_loss": 0.22044935946726546
+      },
+      "test_metrics": {
+        "accuracy": 0.936026936026936,
+        "precision": 0.5588235294117647,
+        "recall": 0.3114754098360656,
+        "f1": 0.4,
+        "confusion_matrix": {
+          "tn": 815,
+          "fp": 15,
+          "fn": 42,
+          "tp": 19
+        },
+        "positive_rate": 0.06846240179573512,
+        "roc_auc": 0.8768121666995852,
+        "pr_auc": 0.4873473881487462,
+        "brier_score": 0.05006386262540203,
+        "log_loss": 0.18197866494401913
+      }
+    }
+  },
+  "final_test_metrics": {
+    "accuracy": 0.9483726150392817,
+    "precision": 0.7777777777777778,
+    "recall": 0.3442622950819672,
+    "f1": 0.4772727272727273,
+    "confusion_matrix": {
+      "tn": 824,
+      "fp": 6,
+      "fn": 40,
+      "tp": 21
+    },
+    "positive_rate": 0.06846240179573512,
+    "roc_auc": 0.8797945881888208,
+    "pr_auc": 0.5325808863387622,
+    "brier_score": 0.047041157599288896,
+    "log_loss": 0.17336603846545995
+  },
+  "dataset_path": "C:\\Users\\kalyaanasundar.a\\Downloads\\Recovery Chain\\data\\recoverchain\\synthetic\\recovery_outcome\\recovery_outcome.xlsx",
+  "dataset_checksum": "0c6111d9c8f8f62dbefd2f8bf2beaec11622702b62cf8686c3dc026d225b0771",
+  "split_row_counts": {
+    "train": 4154,
+    "validation": 890,
+    "test": 891
+  },
+  "artifact_path": "C:\\Users\\kalyaanasundar.a\\Downloads\\Recovery Chain\\backend\\ml\\models\\recovery_registry\\recovery_model_1790147239_model.joblib",
+  "created_at": "2026-09-23T07:07:19.614592+00:00",
+  "artifact_sha256": "dd19d3af07a599dbdccf9a60a6fe25293c6d595573a6e7e3596512fa6744fb68",
+  "feature_schema": {
+    "names": [
+      "amount_at_risk",
+      "age_of_obligation",
+      "customer_tenure",
+      "prior_payment_success_rate",
+      "prior_recovery_rate",
+      "prior_late_rate",
+      "number_of_previous_failed_attempts",
+      "number_of_previous_recoveries",
+      "average_days_to_payment",
+      "amount_vs_customer_average",
+      "invoice_age",
+      "payment_method_valid",
+      "customer_engagement",
+      "recent_login",
+      "reminder_history",
+      "previous_contact_success",
+      "dispute_indicator",
+      "suppression_status",
+      "domain",
+      "payment_method",
+      "account_status",
+      "consent_status",
+      "historical_recovery_behavior"
+    ],
+    "kinds": {
+      "amount_at_risk": "numeric",
+      "age_of_obligation": "numeric",
+      "customer_tenure": "numeric",
+      "prior_payment_success_rate": "numeric",
+      "prior_recovery_rate": "numeric",
+      "prior_late_rate": "numeric",
+      "number_of_previous_failed_attempts": "numeric",
+      "number_of_previous_recoveries": "numeric",
+      "average_days_to_payment": "numeric",
+      "amount_vs_customer_average": "numeric",
+      "invoice_age": "numeric",
+      "payment_method_valid": "numeric",
+      "customer_engagement": "numeric",
+      "recent_login": "numeric",
+      "reminder_history": "numeric",
+      "previous_contact_success": "numeric",
+      "dispute_indicator": "numeric",
+      "suppression_status": "numeric",
+      "domain": "categorical",
+      "payment_method": "categorical",
+      "account_status": "categorical",
+      "consent_status": "categorical",
+      "historical_recovery_behavior": "categorical"
+    },
+    "schema_sha256": "b758f688b566d6206ed9d4f178b94ca983462c5d4c5745e4fd56c74957c4bab9"
+  },
+  "preprocessing": {
+    "numeric_columns": [
+      "amount_at_risk",
+      "age_of_obligation",
+      "customer_tenure",
+      "prior_payment_success_rate",
+      "prior_recovery_rate",
+      "prior_late_rate",
+      "number_of_previous_failed_attempts",
+      "number_of_previous_recoveries",
+      "average_days_to_payment",
+      "amount_vs_customer_average",
+      "invoice_age",
+      "payment_method_valid",
+      "customer_engagement",
+      "recent_login",
+      "reminder_history",
+      "previous_contact_success",
+      "dispute_indicator",
+      "suppression_status"
+    ],
+    "categorical_columns": [
+      "domain",
+      "payment_method",
+      "account_status",
+      "consent_status",
+      "historical_recovery_behavior"
+    ],
+    "numeric_steps": "SimpleImputer(median) -> StandardScaler",
+    "categorical_step": "OneHotEncoder(handle_unknown=ignore)",
+    "missing_values": "NaN/None passed to the trained imputer; never fabricated"
+  },
+  "categorical_vocabulary": {
+    "domain": [
+      "BROKEN_PROMISE",
+      "CHECKOUT_ABANDONMENT",
+      "FAILED_PAYMENT",
+      "FAILED_SUBSCRIPTION",
+      "OVERDUE_INVOICE"
+    ],
+    "payment_method": [
+      "bank_transfer",
+      "card",
+      "unknown",
+      "upi",
+      "wallet"
+    ],
+    "account_status": [
+      "active",
+      "closed",
+      "dormant"
+    ],
+    "consent_status": [
+      "ALLOWED",
+      "OPTED_OUT",
+      "UNKNOWN"
+    ],
+    "historical_recovery_behavior": [
+      "consistently_recovers",
+      "mixed",
+      "rarely_recovers"
+    ]
+  },
+  "integrity_registered": true
+}

@@ -1,0 +1,202 @@
+{
+  "dataset": "billing_recovery_v3",
+  "dataset_metadata_ref": "evaluation/datasets/billing_recovery_v3_metadata.json",
+  "split_row_counts": {
+    "train": 1872859,
+    "validation": 798766,
+    "test": 930267
+  },
+  "features": [
+    "bill_amount_excl_late",
+    "base_charge_usd",
+    "data_overage_usd",
+    "intl_roaming_usd",
+    "tax_usd",
+    "has_overage",
+    "has_roaming",
+    "prior_failures",
+    "prior_unpaid",
+    "prior_late",
+    "prior_ontime",
+    "prior_nonrecovery_count",
+    "prior_nonrecovery_rate",
+    "prior_late_rate",
+    "prior_avg_amount"
+  ],
+  "target": "target_recovered",
+  "results": {
+    "baseline_0_majority": {
+      "description": "always predicts 1 (the majority class in train)",
+      "test_metrics": {
+        "accuracy": 0.9301877847972679,
+        "precision": 0.9301877847972679,
+        "recall": 1.0,
+        "f1": 0.9638313868978998,
+        "confusion_matrix": {
+          "tn": 0,
+          "fp": 64944,
+          "fn": 0,
+          "tp": 865323
+        },
+        "positive_rate": 0.9301877847972679,
+        "roc_auc": 0.5,
+        "pr_auc": 0.9301877847972679,
+        "brier_score": 0.06981221520273212,
+        "log_loss": 0.9644923263944619
+      }
+    },
+    "baseline_1_historical_rate": {
+      "description": "uses 1 - prior_nonrecovery_rate as the probability, no fitting",
+      "test_metrics": {
+        "accuracy": 0.9276680780894088,
+        "precision": 0.9302339874256423,
+        "recall": 0.9970138318292707,
+        "f1": 0.9624669365661777,
+        "confusion_matrix": {
+          "tn": 240,
+          "fp": 64704,
+          "fn": 2584,
+          "tp": 862739
+        },
+        "positive_rate": 0.9301877847972679,
+        "roc_auc": 0.51676489496284,
+        "pr_auc": 0.9326789253586846,
+        "brier_score": 0.07403995688747145,
+        "log_loss": 0.7213003979289766
+      }
+    },
+    "logistic_regression": {
+      "calibrated": true,
+      "training_time_sec": 3.02,
+      "validation_metrics": {
+        "accuracy": 0.9317835260889923,
+        "precision": 0.9317835260889923,
+        "recall": 1.0,
+        "f1": 0.9646873094268922,
+        "confusion_matrix": {
+          "tn": 0,
+          "fp": 54489,
+          "fn": 0,
+          "tp": 744277
+        },
+        "positive_rate": 0.9317835260889923,
+        "roc_auc": 0.5514547261884131,
+        "pr_auc": 0.9432558533165003,
+        "brier_score": 0.06345822837587238,
+        "log_loss": 0.24818590824629422
+      },
+      "test_metrics": {
+        "accuracy": 0.9301877847972679,
+        "precision": 0.9301877847972679,
+        "recall": 1.0,
+        "f1": 0.9638313868978998,
+        "confusion_matrix": {
+          "tn": 0,
+          "fp": 64944,
+          "fn": 0,
+          "tp": 865323
+        },
+        "positive_rate": 0.9301877847972679,
+        "roc_auc": 0.5429204736459714,
+        "pr_auc": 0.93691325162597,
+        "brier_score": 0.0647974689613262,
+        "log_loss": 0.25215584011385517
+      }
+    },
+    "random_forest": {
+      "calibrated": true,
+      "training_time_sec": 37.71,
+      "validation_metrics": {
+        "accuracy": 0.9317835260889923,
+        "precision": 0.9317835260889923,
+        "recall": 1.0,
+        "f1": 0.9646873094268922,
+        "confusion_matrix": {
+          "tn": 0,
+          "fp": 54489,
+          "fn": 0,
+          "tp": 744277
+        },
+        "positive_rate": 0.9317835260889923,
+        "roc_auc": 0.5399514023296665,
+        "pr_auc": 0.938189948603551,
+        "brier_score": 0.06347006814753628,
+        "log_loss": 0.24830806615464007
+      },
+      "test_metrics": {
+        "accuracy": 0.9301877847972679,
+        "precision": 0.9301877847972679,
+        "recall": 1.0,
+        "f1": 0.9638313868978998,
+        "confusion_matrix": {
+          "tn": 0,
+          "fp": 64944,
+          "fn": 0,
+          "tp": 865323
+        },
+        "positive_rate": 0.9301877847972679,
+        "roc_auc": 0.5470417036985031,
+        "pr_auc": 0.9389872963386652,
+        "brier_score": 0.06482948207639101,
+        "log_loss": 0.2523298274845807
+      }
+    },
+    "xgboost": {
+      "calibrated": true,
+      "training_time_sec": 7.07,
+      "validation_metrics": {
+        "accuracy": 0.9317835260889923,
+        "precision": 0.9317835260889923,
+        "recall": 1.0,
+        "f1": 0.9646873094268922,
+        "confusion_matrix": {
+          "tn": 0,
+          "fp": 54489,
+          "fn": 0,
+          "tp": 744277
+        },
+        "positive_rate": 0.9317835260889923,
+        "roc_auc": 0.536412266132942,
+        "pr_auc": 0.9375874250474074,
+        "brier_score": 0.06349495545204435,
+        "log_loss": 0.24848553521319433
+      },
+      "test_metrics": {
+        "accuracy": 0.9301877847972679,
+        "precision": 0.9301877847972679,
+        "recall": 1.0,
+        "f1": 0.9638313868978998,
+        "confusion_matrix": {
+          "tn": 0,
+          "fp": 64944,
+          "fn": 0,
+          "tp": 865323
+        },
+        "positive_rate": 0.9301877847972679,
+        "roc_auc": 0.5447909444401737,
+        "pr_auc": 0.9381176341717918,
+        "brier_score": 0.06483067046769143,
+        "log_loss": 0.25236420289748107
+      }
+    },
+    "_selection": {
+      "criterion": "validation PR-AUC",
+      "ranked": [
+        [
+          "logistic_regression",
+          0.9432558533165003
+        ],
+        [
+          "random_forest",
+          0.938189948603551
+        ],
+        [
+          "xgboost",
+          0.9375874250474074
+        ]
+      ],
+      "selected_model": "logistic_regression",
+      "note": "Target is a per-cycle non-recovery proxy; this dataset's own metadata.json documents that 89% of failing subscriber-months recover in a later month, so a high test score here does not mean absolute non-recovery is predictable \u2014 only this cycle's proxy is."
+    }
+  }
+}

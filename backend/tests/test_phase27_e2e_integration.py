@@ -98,7 +98,14 @@ def test_phase27_e2e_dataset_to_case_workflow(phase27_synthetic_bank_datasets):
     assert case_data["recommended_action"] is not None
     assert case_data["policy_status"] is not None
     assert case_data["execution_status"] is not None
-    assert case_data["outcome_status"] is not None
+    # Phase 5: generate-cases simulates the ACTION (execution_status above) but never
+    # fabricates a financial outcome. outcome_status stays unset until a real outcome
+    # event is ingested (POST /outcomes) for this obligation; /verify honestly reports
+    # PENDING_VERIFICATION in the meantime.
+    assert case_data["outcome_status"] is None
+    verify_res = client.post(f"/cases/{case_id}/verify", json={"external_reference": ""})
+    assert verify_res.status_code == 200
+    assert verify_res.json()["status"] == "PENDING_VERIFICATION"
 
     # 8. Check Audit
     audit_res = client.get(f"/cases/{case_id}/audit")

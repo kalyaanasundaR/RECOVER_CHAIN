@@ -43,10 +43,10 @@ import time
 
 from application.action_evaluator import DeterministicActionEvaluator
 from application.diagnosis_engine import DeterministicDiagnosisEngine
+from domain.lifecycle import CaseLifecycleManager
 from domain.models import (
     ActionRecommendation,
     CandidateAction,
-    CaseState,
     DiagnosisStatus,
     RecommendationStatus,
     RecoveryCase,
@@ -98,7 +98,7 @@ def diagnose(state: GraphState):
     else:
         state["case"].diagnosis = state["det_diag"].diagnose(state["case"])
 
-    state["case"].current_state = CaseState.DIAGNOSING
+    CaseLifecycleManager.record_diagnosis_result(state["case"])
     state["llm_latency_ms"] += int((time.time() - start) * 1000)
     return state
 
@@ -113,18 +113,23 @@ def predict(state: GraphState):
 
 
 def route_specialist(state: GraphState) -> str:
-    cat = state["case"].risk_category.value
-    if cat == "FAILED_PAYMENT":
-        return "payment_agent"
-    elif cat == "CHECKOUT_ABANDONMENT":
-        return "checkout_agent"
-    elif cat == "FAILED_SUBSCRIPTION":
-        return "subscription_agent"
-    elif cat == "OVERDUE_INVOICE":
-        return "receivables_agent"
-    elif cat == "BROKEN_PROMISE":
-        return "promise_agent"
-    return "payment_agent"  # Fallback
+    """Deterministic domain routing (Phase 15): shares application.specialist_agents's
+    router. An unrecognised domain goes to `needs_mapping`, never to a default agent."""
+    from application.specialist_agents import route_case
+
+    agent = route_case(state["case"])
+    return {
+        "PaymentAgent": "payment_agent",
+        "CheckoutAgent": "checkout_agent",
+        "SubscriptionAgent": "subscription_agent",
+        "InvoiceAgent": "receivables_agent",
+        "PromiseToPayAgent": "promise_agent",
+    }.get(agent.agent_id if agent else "", "needs_mapping")
+
+
+def needs_mapping(state: GraphState):
+    state["error_message"] = "NEEDS_MAPPING: no specialist registered for this domain"
+    return state
 
 
 def specialist_agent(state: GraphState):
@@ -171,7 +176,7 @@ def specialist_agent(state: GraphState):
     else:
         state["case"].recommendation = state["det_rec"].evaluate(state["case"])
 
-    state["case"].current_state = CaseState.RECOMMENDING
+    CaseLifecycleManager.record_recommendation_result(state["case"])
     state["llm_latency_ms"] += int((time.time() - start) * 1000)
     return state
 
@@ -189,6 +194,7 @@ def build_graph():
     workflow.add_node("subscription_agent", specialist_agent)
     workflow.add_node("receivables_agent", specialist_agent)
     workflow.add_node("promise_agent", specialist_agent)
+    workflow.add_node("needs_mapping", needs_mapping)
 
     workflow.add_edge(START, "load_case")
     workflow.add_edge("load_case", "diagnose")
@@ -203,6 +209,7 @@ def build_graph():
             "subscription_agent": "subscription_agent",
             "receivables_agent": "receivables_agent",
             "promise_agent": "promise_agent",
+            "needs_mapping": "needs_mapping",
         },
     )
 
@@ -211,5 +218,6 @@ def build_graph():
     workflow.add_edge("subscription_agent", END)
     workflow.add_edge("receivables_agent", END)
     workflow.add_edge("promise_agent", END)
+    workflow.add_edge("needs_mapping", END)
 
     return workflow.compile()

@@ -24,6 +24,7 @@ from domain.models import (
     RecoveryCase,
     RiskCategory,
 )
+from infrastructure.storage import model_registry_dir
 
 client = TestClient(app)
 
@@ -452,7 +453,12 @@ def test_ml_leakage_isolated_during_generate_cases(tmp_path):
                 "action": "confirm" if cf != CanonicalField.UNKNOWN.value else "unused",
             }
         )
-    map_res = client.post(f"/datasets/{ds_id}/mapping", json={"mappings": mappings})
+    # Phase 4: nothing in these columns identifies the revenue domain, and an undeclared
+    # domain is no longer assumed to be a failed payment - so it is declared explicitly.
+    map_res = client.post(
+        f"/datasets/{ds_id}/mapping",
+        json={"mappings": mappings, "declared_domain": "FAILED_PAYMENT"},
+    )
     assert map_res.status_code == 200, map_res.json()
 
     # ML readiness must exclude leaked columns
@@ -665,12 +671,12 @@ def test_dataset_isolation_strict(tmp_path):
     client.post(f"/datasets/{ds_a_id}/train")
 
     # Predictor for B should NOT find A's model
-    pred_b = MLPaymentFailurePredictor(dataset_id=ds_b_id, registry_dir="ml/models/registry")
+    pred_b = MLPaymentFailurePredictor(dataset_id=ds_b_id, registry_dir=model_registry_dir())
     assert pred_b.model is None
 
     # Predictor for non-existent dataset should be None
     pred_fake = MLPaymentFailurePredictor(
-        dataset_id="non_existent_dataset_123", registry_dir="ml/models/registry"
+        dataset_id="non_existent_dataset_123", registry_dir=model_registry_dir()
     )
     assert pred_fake.model is None
 
@@ -734,21 +740,21 @@ def test_sandbox_execution_cannot_become_production():
 @pytest.mark.fast
 def test_path_traversal_and_registry_isolation():
     pred_traversal = MLPaymentFailurePredictor(
-        dataset_id="../../legacy_billing_v3", registry_dir="ml/models/registry"
+        dataset_id="../../legacy_billing_v3", registry_dir=model_registry_dir()
     )
     assert pred_traversal.model is None
 
     pred_traversal_win = MLPaymentFailurePredictor(
-        dataset_id="..\\..\\some_model", registry_dir="ml/models/registry"
+        dataset_id="..\\..\\some_model", registry_dir=model_registry_dir()
     )
     assert pred_traversal_win.model is None
 
     pred_slash = MLPaymentFailurePredictor(
-        dataset_id="/etc/passwd", registry_dir="ml/models/registry"
+        dataset_id="/etc/passwd", registry_dir=model_registry_dir()
     )
     assert pred_slash.model is None
 
     pred_missing = MLPaymentFailurePredictor(
-        dataset_id="ds_does_not_exist_9999", registry_dir="ml/models/registry"
+        dataset_id="ds_does_not_exist_9999", registry_dir=model_registry_dir()
     )
     assert pred_missing.model is None

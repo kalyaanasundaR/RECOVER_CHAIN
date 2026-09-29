@@ -2,7 +2,7 @@ import uuid
 
 from domain.interfaces import IAuditRecorder, ICaseRepository
 from domain.lifecycle import CaseLifecycleManager
-from domain.models import CaseState, RecoveryCase, RevenueEvent
+from domain.models import CaseState, Money, RecoveryCase, RevenueEvent
 
 # A case is "active" (still eligible to have new events correlated onto it)
 # unless it has reached a terminal outcome. Derive from CaseState so new
@@ -13,6 +13,7 @@ _TERMINAL_STATES = {
     CaseState.CLOSED_NOT_RECOVERED,
     CaseState.DENIED,
     CaseState.STOPPED,
+    CaseState.CANCELLED,
 }
 ACTIVE_STATES = {s for s in CaseState if s not in _TERMINAL_STATES}
 
@@ -79,6 +80,11 @@ class CaseEngine:
                 reference_id=event.reference_id,
                 linked_events=[event],
                 amount_at_risk=event.amount,
+                # Phase 5: a fresh obligation starts fully outstanding. These only ever
+                # move by an applied outcome event (application/outcome_events.py).
+                recovered_amount=Money(amount=0, currency=event.amount.currency),
+                outstanding_amount=event.amount,
+                cancelled_amount=Money(amount=0, currency=event.amount.currency),
             )
             # Initialize lifecycle
             CaseLifecycleManager.initialize_case(case)
@@ -109,3 +115,16 @@ class CaseEngine:
         # Sort by timestamp to find the latest
         latest_event = max(case.linked_events, key=lambda e: e.timestamp)
         case.amount_at_risk = latest_event.amount
+
+        # Phase 5: once a real outcome event has reconciled money against this
+        # obligation (application/outcome_events.py), amount_at_risk is no longer
+        # free to move - outstanding_amount was computed against a specific figure,
+        # and silently replacing it here would corrupt that arithmetic (a $40
+        # settlement against what was "$100 at risk" would leave outstanding
+        # renumbered to something that no longer means anything). Before any money
+        # has been reconciled, outstanding simply tracks the (still authoritative)
+        # amount_at_risk.
+        recovered = case.recovered_amount.amount if case.recovered_amount else 0
+        cancelled = case.cancelled_amount.amount if case.cancelled_amount else 0
+        if recovered == 0 and cancelled == 0:
+            case.outstanding_amount = latest_event.amount

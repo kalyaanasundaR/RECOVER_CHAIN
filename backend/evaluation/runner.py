@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -7,7 +9,8 @@ from application.case_engine import CaseEngine
 from application.diagnosis_engine import DeterministicDiagnosisEngine
 from application.policy_engine import DeterministicPolicyEngine
 from application.recovery_predictor import DeterministicBaselinePredictor
-from application.verification_engine import VerificationEngine
+from application.verification_engine import MockOutcomeVerificationAdapter, VerificationEngine
+from domain.lifecycle import CaseLifecycleManager
 from domain.models import CaseState
 from evaluation.models import EvaluationMetrics, EvaluationScenario, ScenarioResult
 from infrastructure.repositories import SqlAlchemyAuditRecorder, SqlAlchemyCaseRepository
@@ -21,8 +24,60 @@ class AblationConfig(BaseModel):
     experiment_mode: str = "A"  # A (Det), B (LLM Diag), C (LLM Rec), D (LLM Full)
 
 
+class OperationalStoreError(RuntimeError):
+    """Raised when evaluation is pointed at the operational database."""
+
+
+def _is_operational_bind(db: Session) -> bool:
+    from infrastructure.db import engine as operational_engine
+
+    bind = db.get_bind()
+    return bind is operational_engine or str(bind.url) == str(operational_engine.url)
+
+
 class EvaluationRunner:
+    """Runs gold-labelled evaluation scenarios through the real pipeline.
+
+    Scenarios create cases, events and audit rows as they run. Those must never land
+    in the operational database: POST /evaluation/run used to hand this runner the
+    request's own session, so each run added its scenarios to the live case table and
+    moved dashboard revenue-at-risk and recovered figures (and a second run failed with
+    HTTP 500 on the fixed scenario event ids). The runner now refuses the operational
+    store outright; use ``EvaluationRunner.isolated()``.
+    """
+
+    ISOLATION = "ISOLATED_EPHEMERAL_STORE"
+
+    @classmethod
+    @contextmanager
+    def isolated(cls, ablation: AblationConfig = AblationConfig()):
+        """A runner bound to a private, in-memory SQLite store that is discarded when
+        the block exits. Each run starts empty, so runs are independent and repeatable."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.pool import StaticPool
+
+        import infrastructure.dataset_orm  # noqa: F401  (register every table)
+        import infrastructure.orm  # noqa: F401
+        from infrastructure.db import Base
+
+        eval_engine = create_engine(
+            "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+        )
+        Base.metadata.create_all(eval_engine)
+        session = sessionmaker(bind=eval_engine, autocommit=False, autoflush=False)()
+        try:
+            yield cls(session, ablation=ablation)
+        finally:
+            session.close()
+            eval_engine.dispose()
+
     def __init__(self, db: Session, ablation: AblationConfig = AblationConfig()):
+        if _is_operational_bind(db):
+            raise OperationalStoreError(
+                "EvaluationRunner refuses to write evaluation scenarios into the operational "
+                "database. Use EvaluationRunner.isolated()."
+            )
         self.db = db
         self.repo = SqlAlchemyCaseRepository(db)
         self.audit = SqlAlchemyAuditRecorder(db)
@@ -34,7 +89,13 @@ class EvaluationRunner:
         self.action_evaluator = DeterministicActionEvaluator()
         self.policy = DeterministicPolicyEngine()
         self.orchestrator = AgentOrchestrator()
-        self.verification = VerificationEngine()
+        # Explicit, and only here: the evaluation harness runs entirely in its own
+        # isolated ephemeral store (EvaluationRunner.isolated) and never writes to the
+        # operational database, so a scripted settlement source is legitimate for
+        # scoring gold scenarios. Nowhere in the operational path gets a default
+        # adapter any more - VerificationEngine() alone returns an engine that can only
+        # report the real, already-reconciled position (see current_position).
+        self.verification = VerificationEngine(MockOutcomeVerificationAdapter())
 
         from application.langgraph_orchestrator import build_graph
         from application.llm_adapters import SimulatedLLMAdapter
@@ -68,7 +129,9 @@ class EvaluationRunner:
 
         risk_detector = DeterministicRiskDetector()
         case.risk_assessment = risk_detector.assess_risk(case)
-        case.current_state = CaseState.ASSESSED
+        # Route state changes through the one authority, like every other caller.
+        # This harness was the last place still assigning current_state directly.
+        CaseLifecycleManager.record_risk_assessment(case)
 
         # 3-5. Intelligence Layer (LangGraph)
         # We invoke the graph state machine, which wraps both deterministic and LLM logic based on mode
@@ -115,7 +178,7 @@ class EvaluationRunner:
                 failed_rules=[],
                 reason="Policy gate skipped via ablation.",
             )
-        case.current_state = CaseState.POLICY_EVALUATED
+        CaseLifecycleManager.record_policy_evaluation(case)
 
         # 7. Execution
         action = None
@@ -126,7 +189,7 @@ class EvaluationRunner:
             record = self.orchestrator.execute(case, action)
             case.execution_record = record
             if record.status.value == "COMPLETED_SIMULATED":
-                case.current_state = CaseState.PENDING_VERIFICATION
+                CaseLifecycleManager.record_execution_result(case, CaseState.PENDING_VERIFICATION)
 
         # 8. Verification
         # Only verify if execution succeeded (as a mock test flow) or if we just want to force a verification

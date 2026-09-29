@@ -13,6 +13,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+import infrastructure.dataset_orm  # noqa: F401  (register the datasets table)
 from infrastructure.db import DATABASE_URL
 from infrastructure.orm import Base
 

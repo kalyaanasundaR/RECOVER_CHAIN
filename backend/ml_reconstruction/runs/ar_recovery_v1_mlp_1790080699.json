@@ -1,0 +1,58 @@
+{
+  "result": {
+    "model": "mlp_sklearn",
+    "architecture": "Dense(32,relu) -> Dense(16,relu) -> sigmoid",
+    "framework": "sklearn.neural_network.MLPClassifier (no torch/tensorflow installed; dataset is 2,466 rows so a heavier framework is not justified)",
+    "optimizer": "adam",
+    "learning_rate_init": 0.001,
+    "alpha_l2": 0.001,
+    "epochs_run": 38,
+    "max_epochs": 500,
+    "early_stopping": true,
+    "training_time_sec": 0.105,
+    "loss_curve_first": 0.768608998022261,
+    "loss_curve_last": 0.36156328618231576,
+    "internal_val_overfit_flag": false,
+    "calibrated": true,
+    "validation_metrics": {
+      "accuracy": 0.873589164785553,
+      "precision": 0.7959183673469388,
+      "recall": 0.8181818181818182,
+      "f1": 0.8068965517241379,
+      "confusion_matrix": {
+        "tn": 270,
+        "fp": 30,
+        "fn": 26,
+        "tp": 117
+      },
+      "positive_rate": 0.3227990970654628,
+      "roc_auc": 0.9381118881118882,
+      "pr_auc": 0.8456899270325888,
+      "brier_score": 0.09485095365423471,
+      "log_loss": 0.30547710480051415
+    },
+    "test_metrics": {
+      "accuracy": 0.8461538461538461,
+      "precision": 0.7304347826086957,
+      "recall": 0.7058823529411765,
+      "f1": 0.717948717948718,
+      "confusion_matrix": {
+        "tn": 279,
+        "fp": 31,
+        "fn": 35,
+        "tp": 84
+      },
+      "positive_rate": 0.2773892773892774,
+      "roc_auc": 0.9062076443480618,
+      "pr_auc": 0.7669661223979358,
+      "brier_score": 0.11654399307280393,
+      "log_loss": 0.3709416384611297
+    }
+  },
+  "comparison_vs_classical_ladder": {
+    "best_classical_model": "logistic_regression",
+    "best_classical_test_roc_auc": 0.8938736785036596,
+    "mlp_test_roc_auc": 0.9062076443480618,
+    "mlp_wins": true
+  }
+}

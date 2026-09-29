@@ -1,0 +1,28 @@
+{
+  "dataset_id": "ethical_edge_cases",
+  "dataset_version": "v1",
+  "generation_timestamp": "2026-09-23T07:04:22.081430+00:00",
+  "random_seed": 20260922,
+  "row_count": 50,
+  "column_count": 11,
+  "columns": [
+    "case_id",
+    "scenario",
+    "amount_at_risk",
+    "consent_status",
+    "suppression_status",
+    "duplicate_of",
+    "already_recovered",
+    "payment_outcome_known",
+    "model_confidence",
+    "expected_decision",
+    "domain"
+  ],
+  "target_column": null,
+  "description": "Hand-specified safety/ethics scenarios (cases A-J from the reconstruction brief). expected_decision is the real rule name this repo's policy engine (application/policy_engine.py) and ingestion dedup actually produce for that situation -- not an invented expectation. Not for accuracy benchmarking.",
+  "xlsx_checksum_sha256": "d795d64b3021ce201a8a830729439998944ead21625a2e7cffbd952e3fd0896b",
+  "csv_checksum_sha256": "32ac660d13fa45d8a6e3e6a0b3add24664880f257993e25d551f6a6c6937cd92",
+  "validation_problems": [],
+  "validation_status": "PASSED",
+  "intended_use": "RESEARCH / TRAINING (synthetic, not production data)"
+}

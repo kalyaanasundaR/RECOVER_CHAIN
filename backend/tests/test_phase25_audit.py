@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from application.dataset_intelligence import SemanticMapper
+from infrastructure.storage import model_registry_dir
 
 client = TestClient(app)
 
@@ -203,7 +204,7 @@ def test_e2e_api_and_isolation(synthetic_bank_datasets):
     # INFERENCE CONTRACT
     from application.recovery_predictor_ml import MLPaymentFailurePredictor
 
-    predictor = MLPaymentFailurePredictor(dataset_id=ds_id, registry_dir="ml/models/registry")
+    predictor = MLPaymentFailurePredictor(dataset_id=ds_id, registry_dir=model_registry_dir())
     assert predictor.model is not None
 
     # Success via canonical fields
@@ -215,7 +216,7 @@ def test_e2e_api_and_isolation(synthetic_bank_datasets):
     # Isolation test: another dataset ID should fail
     predictor2 = MLPaymentFailurePredictor(
         dataset_id="other_dataset_id",
-        registry_dir="ml/models/registry",
+        registry_dir=model_registry_dir(),
         legacy_model_path="missing",
         legacy_features_path="missing",
     )

@@ -1,49 +1,78 @@
 // Pure aggregation over the real /cases list. No fabricated values — every
-// number here is a count or sum of fields the backend returned.
+// number here is a count or sum of fields the backend returned. Money is summed PER
+// CURRENCY: RecoverChain performs no conversion, so amounts in different currencies are
+// never added into one figure.
 
 const num = (v: any) => Number(v ?? 0);
 const amt = (v: any) => (v && typeof v === 'object' ? Number(v.amount) : Number(v ?? 0));
+const ccyOf = (c: any) => String(c.currency || 'INR').toUpperCase();
+
+export type ByCurrency = Record<string, number>;
 
 export interface Group {
     key: string;
     count: number;
-    atRisk: number;
-    recovered: number;
+    atRiskByCcy: ByCurrency;
+    recoveredByCcy: ByCurrency;
     avgProb: number | null;
 }
 
-function groupBy(cases: any[], field: string): Group[] {
+const addTo = (m: ByCurrency, ccy: string, v: number) => {
+    m[ccy] = (m[ccy] || 0) + v;
+};
+
+function groupBy(cases: any[], field: string, singleCurrency: string | null): Group[] {
     const map = new Map<
         string,
-        { count: number; atRisk: number; recovered: number; probSum: number; probN: number }
+        {
+            count: number;
+            atRiskByCcy: ByCurrency;
+            recoveredByCcy: ByCurrency;
+            probSum: number;
+            probN: number;
+        }
     >();
     for (const c of cases) {
         const k = c[field] || '—';
-        const g = map.get(k) || { count: 0, atRisk: 0, recovered: 0, probSum: 0, probN: 0 };
+        const g = map.get(k) || {
+            count: 0,
+            atRiskByCcy: {},
+            recoveredByCcy: {},
+            probSum: 0,
+            probN: 0,
+        };
         g.count++;
-        g.atRisk += num(c.amount_at_risk);
-        g.recovered += amt(c.actual_amount_recovered);
+        addTo(g.atRiskByCcy, ccyOf(c), num(c.amount_at_risk));
+        addTo(g.recoveredByCcy, ccyOf(c), amt(c.actual_amount_recovered));
         if (c.recovery_probability != null) {
             g.probSum += num(c.recovery_probability);
             g.probN++;
         }
         map.set(k, g);
     }
+    // Ordered by money only when every case shares one currency; otherwise by count.
+    const size = (g: Group) => (singleCurrency ? g.atRiskByCcy[singleCurrency] || 0 : g.count);
     return [...map.entries()]
         .map(([key, g]) => ({
             key,
             count: g.count,
-            atRisk: g.atRisk,
-            recovered: g.recovered,
+            atRiskByCcy: g.atRiskByCcy,
+            recoveredByCcy: g.recoveredByCcy,
             avgProb: g.probN ? g.probSum / g.probN : null,
         }))
-        .sort((a, b) => b.atRisk - a.atRisk);
+        .sort((a, b) => size(b) - size(a));
 }
 
 export function computeInsights(cases: any[]) {
     const total = cases.length;
-    const atRisk = cases.reduce((s, c) => s + num(c.amount_at_risk), 0);
-    const recovered = cases.reduce((s, c) => s + amt(c.actual_amount_recovered), 0);
+    const currencies = [...new Set(cases.map(ccyOf))].sort();
+    const singleCurrency = currencies.length === 1 ? currencies[0] : null;
+    const atRiskByCcy: ByCurrency = {};
+    const recoveredByCcy: ByCurrency = {};
+    for (const c of cases) {
+        addTo(atRiskByCcy, ccyOf(c), num(c.amount_at_risk));
+        addTo(recoveredByCcy, ccyOf(c), amt(c.actual_amount_recovered));
+    }
     const withOutcome = cases.filter((c) => c.outcome_status);
     const executed = cases.filter((c) => c.execution_status === 'COMPLETED_SIMULATED');
     const escalated = cases.filter((c) => c.policy_status === 'ESCALATE');
@@ -52,9 +81,10 @@ export function computeInsights(cases: any[]) {
 
     return {
         total,
-        atRisk,
-        recovered,
-        recoveryRate: atRisk ? recovered / atRisk : 0,
+        currencies,
+        singleCurrency,
+        atRiskByCcy,
+        recoveredByCcy,
         outcomeCounts: {
             FULLY_RECOVERED: cases.filter((c) => c.outcome_status === 'FULLY_RECOVERED').length,
             PARTIALLY_RECOVERED: cases.filter((c) => c.outcome_status === 'PARTIALLY_RECOVERED')
@@ -62,6 +92,7 @@ export function computeInsights(cases: any[]) {
             NOT_RECOVERED: cases.filter((c) => c.outcome_status === 'NOT_RECOVERED').length,
             PENDING_VERIFICATION: cases.filter((c) => c.outcome_status === 'PENDING_VERIFICATION')
                 .length,
+            CANCELLED: cases.filter((c) => c.outcome_status === 'CANCELLED').length,
             none: total - withOutcome.length,
         },
         policyCounts: {
@@ -74,9 +105,9 @@ export function computeInsights(cases: any[]) {
         automationRate: auto,
         executedCount: executed.length,
         escalatedCount: escalated.length,
-        byCause: groupBy(cases, 'cause_category'),
-        byRisk: groupBy(cases, 'risk_level'),
-        byAction: groupBy(cases, 'recommended_action'),
-        byCategory: groupBy(cases, 'risk_category'),
+        byCause: groupBy(cases, 'cause_category', singleCurrency),
+        byRisk: groupBy(cases, 'risk_level', singleCurrency),
+        byAction: groupBy(cases, 'recommended_action', singleCurrency),
+        byCategory: groupBy(cases, 'risk_category', singleCurrency),
     };
 }

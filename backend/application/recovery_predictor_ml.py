@@ -7,12 +7,19 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
+# Every `prediction_problem` label application/ml_readiness.py's auto-detector can
+# assign to a REVENUE-AT-RISK target column (see that module for the exact
+# name-matching rules). "churn-prediction" and "fraud-prediction" are deliberately
+# excluded here - they are real, different tasks that module can also auto-detect,
+# and neither is a recovery-probability signal this shadow predictor may serve.
+REVENUE_RECOVERY_TASKS = frozenset({"payment-failure-risk", "late-settlement-risk"})
+
 
 class MLPaymentFailurePredictor:
     def __init__(
         self,
         dataset_id: str = None,
-        registry_dir: str = "backend/ml/models/registry",
+        registry_dir: str | None = None,
         legacy_model_path: str = "backend/ml/models/failure_risk_tree.json",
         legacy_features_path: str = "backend/ml/models/features.json",
     ):
@@ -28,7 +35,9 @@ class MLPaymentFailurePredictor:
             if not isinstance(dataset_id, str) or not re.match(r"^[a-zA-Z0-9_-]+$", dataset_id):
                 return
 
-            reg_dir = registry_dir
+            from infrastructure.storage import model_registry_dir
+
+            reg_dir = registry_dir or model_registry_dir()
             if not os.path.exists(reg_dir) and os.path.exists(os.path.join("backend", reg_dir)):
                 reg_dir = os.path.join("backend", reg_dir)
             elif (
@@ -52,9 +61,23 @@ class MLPaymentFailurePredictor:
                     if meta.get("status") == "REJECTED_LOW_QUALITY":
                         # Failed the training quality gate — not fit to serve.
                         continue
+                    # Phase 10: previously required meta["task"] ==
+                    # "payment-failure-risk" EXACTLY, so a model for the other
+                    # revenue-recovery task label application/ml_readiness.py can
+                    # legitimately auto-detect ("late-settlement-risk", for a target
+                    # column whose name contains "late"/"delinquent") could never be
+                    # loaded here, even after training successfully and passing the
+                    # quality gate. REVENUE_RECOVERY_TASKS below is every task label
+                    # that module can produce for an at-risk-revenue target;
+                    # "churn-prediction" and "fraud-prediction" are deliberately
+                    # EXCLUDED - they predict a different real-world event and must
+                    # never be loaded as if they were a recovery-probability
+                    # shadow model (test_phase29_dataset_isolation_and_security
+                    # exercises exactly this: a dataset with only a churn-prediction
+                    # model must still report model=None here).
                     if (
                         meta.get("dataset_id") == dataset_id
-                        and meta.get("task") == "payment-failure-risk"
+                        and meta.get("task") in REVENUE_RECOVERY_TASKS
                     ):
                         self.metadata = meta
                         artifact_path = self.metadata.get("artifact_path")
@@ -139,13 +162,67 @@ class MLPaymentFailurePredictor:
             df = pd.DataFrame([mapped_features])
             prob = self.model.predict_proba(df[self.features])[0, 1]
 
+        prob = float(prob)
+        # Phase 12 model-failure-safety hardening: a NaN or out-of-[0,1]
+        # probability (a corrupted artifact, a native-library edge case, a
+        # pathological input row) must never reach ERV math as a silent
+        # not-a-number or an impossible probability > 1 / < 0. Treated the
+        # same as any other shadow-prediction failure: surfaced as a clean
+        # error status so the caller (case_pipeline.predict_recovery_for_case)
+        # falls back to the deterministic baseline, never as a "successful"
+        # prediction carrying a nonsensical number.
+        if not np.isfinite(prob) or prob < 0.0 or prob > 1.0:
+            return {
+                "probability": 0.0,
+                "status": "INVALID_PROBABILITY",
+                "error": f"model produced a non-finite or out-of-range probability: {prob!r}",
+            }
+
+        from application.explainability import confidence_tier
+
+        model_metadata = {
+            "dataset_id": self.metadata.get("dataset_id"),
+            "model_version": self.metadata.get("model_version", "unknown"),
+            "features_used": self.features,
+            "shadow_mode_active": True,
+            # Phase 11: exposes WHEN this model was trained so a caller (UI,
+            # drift-readiness check) can judge staleness. This module does
+            # not itself refuse to serve an old model — that's a policy
+            # decision for whatever consumes this metadata, not a silent
+            # runtime behavior change here.
+            "trained_at": self.metadata.get("created_at"),
+            "confidence_tier": confidence_tier(prob, self.metadata),
+        }
+
+        # Phase 12: explanation is genuinely useful but strictly supplementary
+        # - a broken explainer must never turn an otherwise-valid prediction
+        # into a failed one, so it is isolated in its own try/except and
+        # simply omitted (not defaulted to a fabricated value) on error.
+        try:
+            from application.explainability import explain_legacy_xgboost, explain_sklearn_pipeline
+
+            if self.is_legacy:
+                model_metadata["explanation"] = explain_legacy_xgboost(
+                    self.model, self.features, mapped_features
+                )
+            else:
+                model_metadata["explanation"] = explain_sklearn_pipeline(
+                    self.model, self.features, mapped_features
+                )
+        except Exception:
+            model_metadata["explanation"] = None
+
+        try:
+            from application.anomaly_detection import score_anomaly
+
+            model_metadata["anomaly"] = score_anomaly(
+                mapped_features, self.metadata.get("training_feature_distribution")
+            )
+        except Exception:
+            model_metadata["anomaly"] = None
+
         return {
-            "probability": float(prob),
+            "probability": prob,
             "status": "SUCCESS",
-            "model_metadata": {
-                "dataset_id": self.metadata.get("dataset_id"),
-                "model_version": self.metadata.get("model_version", "unknown"),
-                "features_used": self.features,
-                "shadow_mode_active": True,
-            },
+            "model_metadata": model_metadata,
         }

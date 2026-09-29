@@ -40,6 +40,11 @@ def check_startup_config() -> None:
         problems.append("API_KEY is the built-in dev key — set a strong API_KEY")
     if os.getenv("CORS_ORIGINS", "*") == "*":
         problems.append("CORS_ORIGINS is '*' — set an explicit allow-list")
+    if not os.getenv("OPERATOR_API_KEY"):
+        problems.append(
+            "OPERATOR_API_KEY is unset — API_KEY holders can read traces/audit/execution "
+            "history; set OPERATOR_API_KEY to separate operator (read) from user access"
+        )
     for p in problems:
         logger.warning("INSECURE DEFAULT: %s", p)
 

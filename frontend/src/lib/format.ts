@@ -17,7 +17,53 @@ export const pct = (n: any) =>
     n === null || n === undefined ? '—' : `${Math.round(Number(n) * 100)}%`;
 
 const amt = (v: any) => (v && typeof v === 'object' ? v.amount : v);
-export const moneyMaybe = (v: any, ccy = 'INR') => money(amt(v), ccy);
+// A {amount, currency} object is shown in its own currency.
+export const moneyMaybe = (v: any, ccy = 'INR') =>
+    money(amt(v), v && typeof v === 'object' && v.currency ? v.currency : ccy);
+
+// Amounts in several currencies, one per currency. Never added together: RecoverChain
+// performs no conversion.
+export const moneyByCurrency = (byCcy: Record<string, number>) => {
+    const entries = Object.entries(byCcy).sort(([a], [b]) => a.localeCompare(b));
+    if (!entries.length) return money(0);
+    return entries.map(([ccy, v]) => money(v, ccy)).join(' · ');
+};
+
+// why a case's events carry their revenue type (backend DomainBasis)
+export const DOMAIN_BASIS: Record<string, string> = {
+    DECLARED_BY_SOURCE: 'named by the source system',
+    DECLARED_FOR_DATASET: 'declared for the file',
+    CATEGORY_COLUMN_MAPPED: 'from the category column you confirmed',
+    CATEGORY_COLUMN_RECOGNISED: 'from the file’s category column',
+    SCHEMA_EVIDENCE: 'from columns only this kind of data has',
+    PAYMENT_FAILURE_EVIDENCE: 'from its payment-failure columns',
+    LEGACY_UNRECORDED: 'not recorded (imported before revenue types were tracked)',
+};
+
+// a customer's contact permission for one channel
+export const PERMISSION: Record<string, string> = {
+    ALLOWED: 'Allowed',
+    OPTED_OUT: 'Opted out',
+    SUPPRESSED: 'Suppressed',
+    UNKNOWN: 'No record',
+};
+
+// Phase 8B: labels an outcome's evidence source when it is not (yet) real-world —
+// production is the only value that renders no badge at all (CaseView.tsx).
+export const PROVENANCE_LABEL: Record<string, string> = {
+    test: 'test data',
+    external_source_simulated: 'simulated external-source data',
+    human_confirmed: 'human-confirmed',
+    mixed: 'mixed evidence sources',
+};
+
+// Phase 12: a documented-methodology confidence bucket, not a fabricated
+// statistical confidence interval — see backend application/explainability.py.
+export const CONFIDENCE_LABEL: Record<string, string> = {
+    HIGH: 'High confidence',
+    MEDIUM: 'Medium confidence',
+    LOW: 'Low confidence',
+};
 
 // plain words for backend enums ------------------------------------------------
 export const WHY_FAILED: Record<string, string> = {
@@ -58,6 +104,8 @@ export const RULE_LABEL: Record<string, string> = {
     HumanEscalationAction: 'Human-approval threshold',
     StopRule: 'Stop rule',
     ConsentCheck: 'Consent',
+    ContactPermission: 'Contact permission',
+    ActionDomainApplicability: 'Action fits the revenue type',
     EvidenceCheck: 'Evidence present',
 };
 
@@ -92,6 +140,8 @@ export function outcomeVerdict(status?: string): { label: string; tone: Tone } {
             return { label: 'Not recovered', tone: 'red' };
         case 'PENDING_VERIFICATION':
             return { label: 'Pending', tone: 'blue' };
+        case 'CANCELLED':
+            return { label: 'Cancelled', tone: 'gray' };
         default:
             return { label: 'Not run', tone: 'gray' };
     }

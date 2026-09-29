@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import time
@@ -8,9 +9,11 @@ import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
+from sklearn.frozen import FrozenEstimator
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
+    accuracy_score,
     average_precision_score,
     brier_score_loss,
     confusion_matrix,
@@ -123,6 +126,34 @@ class MLTrainingEngine:
             return (series == 0).astype(int)
         return series
 
+    def _capture_temporal_boundaries(
+        self, tr: pd.DataFrame, va: pd.DataFrame, te: pd.DataFrame
+    ) -> dict:
+        """Best-effort train/validation/test date-range boundaries, keyed off the
+        spec's declared temporal split column when it is present in the split
+        frames. Row counts alone (split_row_counts) don't tell a reviewer WHEN
+        each fold ends, which is what a temporal-leakage audit actually needs."""
+        split_col = (self.spec.get("temporal_split") or {}).get("split_column")
+        if not split_col:
+            return {}
+
+        def _range(frame: pd.DataFrame) -> dict | None:
+            if split_col not in frame.columns or len(frame) == 0:
+                return None
+            parsed = pd.to_datetime(frame[split_col], errors="coerce", utc=True)
+            parsed = parsed.dropna()
+            if parsed.empty:
+                return None
+            return {"start": parsed.min().isoformat(), "end": parsed.max().isoformat()}
+
+        boundaries = {
+            "split_column": split_col,
+            "train": _range(tr),
+            "validation": _range(va),
+            "test": _range(te),
+        }
+        return boundaries if any(boundaries[k] for k in ("train", "validation", "test")) else {}
+
     def _split_data(self, df: pd.DataFrame):
         # Prefer the pre-computed split if it exists and obeys chronologic rules
         if "split" in df.columns:
@@ -181,6 +212,11 @@ class MLTrainingEngine:
             "roc_auc": roc_auc,
             "pr_auc": pr_auc,
             "brier_score": brier,
+            # Reported alongside — not in place of — the imbalance-aware metrics above.
+            # Failed/recovered payments are rarely a 50/50 split, so accuracy alone can
+            # look good on a model that just predicts the majority class; roc_auc / pr_auc
+            # / recall are what the quality gate actually keys off.
+            "accuracy": accuracy_score(y, y_pred),
             "precision": precision_score(y, y_pred, zero_division=0),
             "recall": recall_score(y, y_pred, zero_division=0),
             "f1": f1_score(y, y_pred, zero_division=0),
@@ -191,6 +227,19 @@ class MLTrainingEngine:
 
     def train_and_evaluate(self):
         start_time = time.time()
+
+        # Dataset snapshot checksum (Phase 11 hardening): a sha256 of the exact
+        # bytes trained on, so a registry entry can be tied back to precisely
+        # which file version produced it — independent of dataset_snapshot.py's
+        # live-case checksum (application/dataset_snapshot.py), which covers a
+        # different asset (eligible case_ids for the outcome-event pipeline, not
+        # a training CSV/XLSX/Parquet file on disk).
+        dataset_snapshot_checksum = None
+        try:
+            with open(self.data_path, "rb") as fh:
+                dataset_snapshot_checksum = hashlib.sha256(fh.read()).hexdigest()
+        except OSError:
+            pass  # e.g. empty data_path in a unit test that stops before this matters
 
         # 1. Load Data (CSV / XLSX / Parquet)
         df = _read_any(self.data_path)
@@ -226,6 +275,21 @@ class MLTrainingEngine:
         # Split Data
         df["__target__"] = y_all
         train_df, val_df, test_df = self._split_data(df)
+        temporal_boundaries = self._capture_temporal_boundaries(train_df, val_df, test_df)
+
+        # Drift readiness (Phase 11): compare the training distribution against
+        # the held-out test distribution on the same feature columns actually
+        # used. This is readiness infrastructure — a real production-drift check
+        # would compare training against NEWLY INGESTED data, which doesn't exist
+        # yet; application.drift_readiness.compare_distributions is the reusable
+        # function a future ingestion path calls for that.
+        from application.drift_readiness import compare_distributions, summarize_distribution
+
+        train_feature_distribution = summarize_distribution(train_df, feature_cols)
+        train_test_drift = compare_distributions(
+            train_feature_distribution,
+            summarize_distribution(test_df, feature_cols) if len(test_df) else {},
+        )
 
         X_train, y_train = train_df[feature_cols], train_df["__target__"]
         X_val, y_val = val_df[feature_cols], val_df["__target__"]
@@ -304,9 +368,12 @@ class MLTrainingEngine:
             final_model = pipeline
             if not small_val:
                 try:
-                    calibrated = CalibratedClassifierCV(
-                        estimator=pipeline, method="sigmoid", cv="prefit"
-                    )
+                    # FrozenEstimator, not cv="prefit" (removed in scikit-learn 1.6+;
+                    # this repo pins 1.9.0 — cv="prefit" silently raised and every
+                    # calibration attempt fell back to the uncalibrated pipeline,
+                    # caught by the except below. Found and fixed during the AI
+                    # reconstruction audit (docs/ai_reconstruction/00_FORENSIC_AUDIT.md).
+                    calibrated = CalibratedClassifierCV(FrozenEstimator(pipeline), method="sigmoid")
                     calibrated.fit(X_val, y_val)
                     final_model = calibrated
                 except Exception:
@@ -371,6 +438,29 @@ class MLTrainingEngine:
         model_status = "SELECTED" if not gate_reasons else "REJECTED_LOW_QUALITY"
         small_sample = len(X_test) < min_test_rows
 
+        # Lifecycle status (Phase 11 hardening): distinguishes "an artifact file
+        # exists" from "fit to serve" from "actually being served" from
+        # "validated against real production outcomes" — the four are not the
+        # same claim and `status` (SELECTED/REJECTED_LOW_QUALITY, above) doesn't
+        # carry that distinction on its own.
+        #   TRAINED         - artifact + metadata written (always true here)
+        #   EVALUATED       - test/validation metrics computed (always true here)
+        #   QUALITY_PASSED  - cleared the quality gate (mirrors model_status)
+        #   SHADOW_ACTIVE   - NOT set here: only true once
+        #                     MLPaymentFailurePredictor actually loads this
+        #                     specific registry entry for a live dataset_id/task,
+        #                     which is a serving-time fact, not a training-time one.
+        #   PRODUCTION_VALIDATED - NEVER set by this training pipeline. Per the
+        #                     provenance rules (application/outcome_provenance.py)
+        #                     this requires real PRODUCTION-provenance outcome
+        #                     evidence at volume, which this repo does not have
+        #                     (see docs/history/PHASE_10_ML_DL_EVALUATION_REPORT.md).
+        #                     Promoting a model to this status is a manual,
+        #                     evidence-reviewed decision outside this pipeline.
+        lifecycle_status = "QUALITY_PASSED" if not gate_reasons else "EVALUATED"
+
+        provenance_status = self.spec.get("dataset_provenance_status", "UNKNOWN")
+
         # 4. Save Artifacts
         artifact_path = os.path.join(self.output_dir, f"{self.run_id}_model.joblib")
         joblib.dump(best_pipeline, artifact_path)
@@ -403,6 +493,16 @@ class MLTrainingEngine:
                 "roc_source": roc_source,
             },
             "split_strategy": getattr(self, "_split_kind", "TEMPORAL"),
+            "temporal_boundaries": temporal_boundaries,
+            "train_test_distribution_drift": train_test_drift,
+            # Phase 12: per-feature training distribution, reused at inference
+            # time by application.anomaly_detection to flag a case whose
+            # feature values fall far outside what this model was trained on -
+            # independent of, and never influencing, recovery_probability.
+            "training_feature_distribution": train_feature_distribution,
+            "dataset_snapshot_checksum": dataset_snapshot_checksum,
+            "lifecycle_status": lifecycle_status,
+            "provenance_status": provenance_status,
             "dropped_empty_features": dead_cols,
             "selected_model": best_model_name,
             "candidate_results": results,

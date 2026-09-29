@@ -1,8 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getOverview, listCases, getSystemSummary, getSystemHealth, getModels } from '../lib/api';
+import {
+    getOverview,
+    listCases,
+    getSystemSummary,
+    getSystemHealth,
+    getModels,
+    getModelMonitoring,
+    downloadCasesCsv,
+} from '../lib/api';
 import { computeInsights } from '../lib/insights';
-import { money, pct, WHY_FAILED, ACTION, CATEGORY, riskWord } from '../lib/format';
+import { money, moneyByCurrency, pct, WHY_FAILED, ACTION, CATEGORY, riskWord } from '../lib/format';
 import { Card, BigStat, Pill, Spinner, ErrorNote, Empty, Note } from '../ui';
 
 function Bar({
@@ -50,18 +58,20 @@ export default function Insights() {
         setErr('');
         Promise.all([
             getOverview(),
-            listCases(),
+            listCases(500),
             getSystemSummary(),
             getSystemHealth(),
             getModels(),
+            getModelMonitoring().catch(() => null), // Phase 14 — advisory panel only, never blocks the page
         ])
-            .then(([metrics, cases, summary, health, models]) =>
+            .then(([metrics, cases, summary, health, models, monitoring]) =>
                 setD({
                     metrics,
                     cases: cases || [],
                     summary,
                     health,
                     models,
+                    monitoring,
                     ins: computeInsights(cases || []),
                 }),
             )
@@ -73,7 +83,26 @@ export default function Insights() {
     if (loading) return <Spinner label="Building the report…" />;
     if (err) return <ErrorNote onRetry={load}>{err}</ErrorNote>;
 
-    const { ins, summary: s, health: h, models } = d;
+    const { ins, summary: s, health: h, models, monitoring, metrics: m } = d;
+    // Headline money comes from the backend aggregate over EVERY case. It used to be
+    // summed here from the /cases page (at most 200 cases) and silently undercounted.
+    // One headline row per currency: RecoverChain converts nothing, so amounts in
+    // different currencies are never added into one figure.
+    const breakdown = m.currency_breakdown || {};
+    const ccys: string[] = Object.keys(breakdown).sort();
+    const headline = ccys.map((ccy) => ({
+        ccy,
+        atRisk: Number(breakdown[ccy].total_revenue_at_risk ?? 0),
+        recovered: Number(breakdown[ccy].verified_recovery ?? 0),
+        // Phase 5: "still outstanding" is what real outcome events say is still owed —
+        // not at-risk minus recovered, which would count cancelled/withdrawn balances
+        // as if they were still collectible.
+        outstanding: Number(breakdown[ccy].outstanding_amount ?? 0),
+        cancelled: Number(breakdown[ccy].cancelled_amount ?? 0),
+    }));
+    const unmatchedEvents = Number(m.unmatched_outcome_events ?? 0);
+    const unmatchedAmount = Number(m.unmatched_outcome_amount ?? 0);
+    const partialBreakdown = s.cases_count > ins.total;
 
     if (ins.total === 0) {
         return (
@@ -90,7 +119,10 @@ export default function Insights() {
     }
 
     const promoted = (models.items || []).filter((x: any) => x.status === 'SELECTED');
-    const maxCauseRisk = Math.max(...ins.byCause.map((g: any) => g.atRisk), 1);
+    // Bars are sized by money only when every listed case shares one currency.
+    const barSize = (g: any) =>
+        ins.singleCurrency ? g.atRiskByCcy[ins.singleCurrency] || 0 : g.count;
+    const maxCategorySize = Math.max(...ins.byCategory.map(barSize), 1);
     const maxActionCount = Math.max(...ins.byAction.map((g: any) => g.count), 1);
 
     return (
@@ -98,27 +130,70 @@ export default function Insights() {
             <div>
                 <h1 className="text-2xl font-bold">Insights</h1>
                 <p className="mt-1 text-[--muted]">
-                    Everything {ins.total} recovery cases across {s.datasets_count} imported dataset
+                    Everything {s.cases_count} recovery cases across {s.datasets_count} imported
+                    dataset
                     {s.datasets_count === 1 ? '' : 's'} have told us so far.
                 </p>
             </div>
 
-            {/* headline */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                <BigStat label="Money at risk" value={money(ins.atRisk)} />
-                <BigStat label="Recovered" value={money(ins.recovered)} tone="green" />
-                <BigStat
-                    label="Still missing"
-                    value={money(ins.atRisk - ins.recovered)}
-                    tone="red"
-                />
-                <BigStat
-                    label="Recovery rate"
-                    value={pct(ins.recoveryRate)}
-                    tone="blue"
-                    sub="recovered ÷ at risk"
-                />
+            {/* headline — one row per currency */}
+            <div className="space-y-6">
+                {headline.map(({ ccy, atRisk, recovered, outstanding, cancelled }) => {
+                    const suffix = ccys.length > 1 ? ` (${ccy})` : '';
+                    return (
+                        <div key={ccy} className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                            <BigStat label={`Money at risk${suffix}`} value={money(atRisk, ccy)} />
+                            <BigStat
+                                label={`Recovered${suffix}`}
+                                value={money(recovered, ccy)}
+                                tone="green"
+                            />
+                            <BigStat
+                                label={`Still outstanding${suffix}`}
+                                value={money(outstanding, ccy)}
+                                tone="red"
+                                sub={
+                                    cancelled > 0
+                                        ? `+ ${money(cancelled, ccy)} cancelled — not expected`
+                                        : undefined
+                                }
+                            />
+                            <BigStat
+                                label={`Recovery rate${suffix}`}
+                                value={pct(atRisk ? recovered / atRisk : 0)}
+                                tone="blue"
+                                sub="recovered ÷ at risk"
+                            />
+                        </div>
+                    );
+                })}
             </div>
+
+            {unmatchedEvents > 0 && (
+                <Note tone="amber">
+                    {unmatchedEvents} outcome event{unmatchedEvents === 1 ? '' : 's'} (
+                    {money(unmatchedAmount)}) could not be matched to any obligation and are not
+                    counted as recovered.
+                </Note>
+            )}
+
+            {(m.mixed_currency || partialBreakdown) && (
+                <div className="space-y-2">
+                    {m.mixed_currency && (
+                        <Note>
+                            Figures are shown separately for {ccys.join(', ')}. RecoverChain does
+                            not convert currencies, so amounts in different currencies are never
+                            added together.
+                        </Note>
+                    )}
+                    {partialBreakdown && (
+                        <Note>
+                            The breakdowns below cover the latest {ins.total} of {s.cases_count}{' '}
+                            cases.
+                        </Note>
+                    )}
+                </div>
+            )}
 
             {/* outcomes */}
             <Card
@@ -130,7 +205,11 @@ export default function Insights() {
                     ['Partially recovered', ins.outcomeCounts.PARTIALLY_RECOVERED, 'amber'],
                     ['Not recovered', ins.outcomeCounts.NOT_RECOVERED, 'red'],
                     ['Pending check', ins.outcomeCounts.PENDING_VERIFICATION, 'blue'],
-                    ['Not run', ins.outcomeCounts.none, 'blue'],
+                    // Includes cases with no outcome event yet, whether or not an action
+                    // has run — Phase 5: an executed action is not itself a recovered
+                    // amount, so it stays here until a real outcome arrives.
+                    ['No outcome yet', ins.outcomeCounts.none, 'blue'],
+                    ['Cancelled', ins.outcomeCounts.CANCELLED, 'gray'],
                 ].map(([label, n, tone]: any) => (
                     <Bar
                         key={label}
@@ -167,10 +246,10 @@ export default function Insights() {
                                         {g.count}
                                     </td>
                                     <td className="py-2.5 pr-4 tabular text-[--muted]">
-                                        {money(g.atRisk)}
+                                        {moneyByCurrency(g.atRiskByCcy)}
                                     </td>
                                     <td className="py-2.5 pr-4 tabular text-emerald-300">
-                                        {money(g.recovered)}
+                                        {moneyByCurrency(g.recoveredByCcy)}
                                     </td>
                                     <td className="py-2.5 tabular text-sky-300">
                                         {g.avgProb == null ? '—' : pct(g.avgProb)}
@@ -241,7 +320,7 @@ export default function Insights() {
                                 value={g.count}
                                 max={ins.total}
                                 tone={r.tone}
-                                right={`${g.count} · ${money(g.atRisk)}`}
+                                right={`${g.count} · ${moneyByCurrency(g.atRiskByCcy)}`}
                             />
                         );
                     })}
@@ -251,9 +330,9 @@ export default function Insights() {
                         <Bar
                             key={g.key}
                             label={CATEGORY[g.key] || g.key}
-                            value={g.atRisk}
-                            max={maxCauseRisk}
-                            right={money(g.atRisk)}
+                            value={barSize(g)}
+                            max={maxCategorySize}
+                            right={moneyByCurrency(g.atRiskByCcy)}
                         />
                     ))}
                 </Card>
@@ -320,19 +399,88 @@ export default function Insights() {
                         no live payment gateway is connected.
                     </Note>
                 </div>
+
+                {monitoring && (
+                    <div className="mt-6 rounded-xl border border-[--line] bg-[--panel] p-4">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[--faint]">
+                            Model monitoring (advisory — not a business outcome)
+                        </div>
+                        <div className="mt-3 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                                <div className="text-xs text-[--faint]">Current model</div>
+                                <div className="mt-0.5 font-medium">
+                                    {monitoring.champion
+                                        ? `${monitoring.champion.model_version} (${monitoring.champion.model_id})`
+                                        : 'None trained'}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-[--faint]">Evaluation status</div>
+                                <div className="mt-0.5 font-medium">
+                                    {monitoring.champion?.promotion_gate?.stage ?? '—'}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-[--faint]">Calibration</div>
+                                <div className="mt-0.5 font-medium">
+                                    {monitoring.champion?.calibrated ? 'Calibrated' : 'Not calibrated'}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-[--faint]">Drift vs. training data</div>
+                                <div className="mt-0.5 font-medium">
+                                    {monitoring.champion?.last_known_train_test_drift === true
+                                        ? 'Drift detected at training time'
+                                        : monitoring.champion?.last_known_train_test_drift === false
+                                          ? 'No drift at training time'
+                                          : 'Not computed'}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-[--faint]">Shadow / challenger</div>
+                                <div className="mt-0.5 font-medium">
+                                    Shadow only — no challenger approved for promotion
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-[--faint]">Production-validation status</div>
+                                <div className="mt-0.5 font-medium">
+                                    {monitoring.production_validation_status}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-[--faint]">Prediction-vs-reality evidence</div>
+                                <div className="mt-0.5 font-medium">
+                                    {monitoring.prediction_vs_reality.status === 'COMPUTED'
+                                        ? `${monitoring.prediction_vs_reality.n} matched cases`
+                                        : `Insufficient evidence (${monitoring.prediction_vs_reality.n} matched case${monitoring.prediction_vs_reality.n === 1 ? '' : 's'})`}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-[--faint]">Next-best-action model</div>
+                                <div className="mt-0.5 font-medium">{monitoring.nba_model_status}</div>
+                            </div>
+                        </div>
+                        <p className="mt-3 text-xs text-[--faint]">
+                            Model status describes the prediction pipeline only — it is never the
+                            business outcome. Actual recovered amounts come only from authoritative
+                            outcome events, shown elsewhere on this page.
+                        </p>
+                    </div>
+                )}
             </Card>
 
             <div>
                 <Link to="/cases" className="text-sm font-medium text-sky-400 hover:underline">
                     See every case →
                 </Link>
-                <a
-                    href="/api/system/cases.csv"
-                    download
+                <button
+                    type="button"
+                    onClick={() => downloadCasesCsv().catch((e) => setErr(e.message))}
                     className="ml-5 text-sm font-medium text-sky-400 hover:underline"
                 >
                     Download CSV
-                </a>
+                </button>
             </div>
         </div>
     );

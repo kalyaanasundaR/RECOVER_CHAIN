@@ -9,9 +9,13 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def setup_db():
+    # Ensure the schema exists (idempotent). This file must NOT drop it afterwards: the
+    # session-scoped `_test_database` fixture in conftest.py owns the schema lifecycle.
+    # A per-test `drop_all` here destroyed the shared operational-test schema for every
+    # test that ran after this file and only "worked" in the full suite because later
+    # modules happen to call create_all themselves (Phase 16 root-cause fix).
     Base.metadata.create_all(bind=engine)
     yield
-    Base.metadata.drop_all(bind=engine)
 
 
 def test_run_evaluation():

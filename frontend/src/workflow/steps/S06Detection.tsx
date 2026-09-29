@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StepProps } from '../types';
 import { buildCases, listCases, getCase } from '../../lib/api';
 import { Spinner, ErrorNote, Note, Row, BigStat } from '../../ui';
+import { CATEGORY, DOMAIN_BASIS } from '../../lib/format';
 
 export default function S06Detection({ ctx, patch, next, setAction }: StepProps) {
     const [done, setDone] = useState<any>(null);
@@ -59,12 +60,24 @@ export default function S06Detection({ ctx, patch, next, setAction }: StepProps)
 
     const c = done?.counters || {};
     const skips = [
+        c.not_at_risk && `${c.not_at_risk} already paid`,
         c.invalid_amount && `${c.invalid_amount} invalid amount`,
+        c.invalid_currency && `${c.invalid_currency} unknown currency`,
         c.invalid_entity && `${c.invalid_entity} missing customer`,
         c.invalid_timestamp && `${c.invalid_timestamp} invalid date`,
         c.invalid_target && `${c.invalid_target} missing result`,
         c.ambiguous_target && `${c.ambiguous_target} unclear result`,
+        c.case_closed && `${c.case_closed} on an already-closed case`,
+        c.unresolved_domain && `${c.unresolved_domain} with an unrecognised revenue type`,
     ].filter(Boolean);
+    const dc = done?.domain_classification;
+    const domainLine = !dc
+        ? null
+        : dc.mode === 'PER_ROW'
+          ? `Revenue type set row by row — ${DOMAIN_BASIS[dc.basis] || dc.basis} “${dc.category_column}”`
+          : `Revenue type: ${CATEGORY[dc.domain] || dc.domain} — ${DOMAIN_BASIS[dc.basis] || dc.basis}`;
+    // Duplicates are reported on their own line, so they are not "skipped" here.
+    const skipped = (c.rows_skipped ?? 0) - (c.duplicate_event ?? 0);
 
     return (
         <div className="max-w-2xl">
@@ -96,17 +109,30 @@ export default function S06Detection({ ctx, patch, next, setAction }: StepProps)
                 <div className="mt-8 step-in">
                     <BigStat
                         label="Recovery cases created"
-                        value={done.cases_generated}
+                        value={c.cases_created ?? done.cases_generated}
                         tone="blue"
                         sub={`from ${c.rows_seen ?? '—'} rows`}
                     />
                     <ul className="mt-6">
+                        {domainLine && <Row ok>{domainLine}</Row>}
                         <Row ok>
                             {c.rows_accepted ?? done.cases_generated} rows became recovery cases
                         </Row>
-                        {(c.rows_skipped ?? 0) > 0 && (
+                        {(c.duplicate_event ?? 0) > 0 && (
                             <Row warn>
-                                {c.rows_skipped} rows skipped
+                                {c.duplicate_event} rows were already in RecoverChain — their
+                                existing cases are shown instead of creating copies
+                            </Row>
+                        )}
+                        {done.truncated && (
+                            <Row warn>
+                                {c.rows_not_processed} rows after the first {c.rows_seen} were not
+                                processed
+                            </Row>
+                        )}
+                        {skipped > 0 && (
+                            <Row warn>
+                                {skipped} rows skipped
                                 {skips.length
                                     ? ` — ${skips.join(', ')}`
                                     : ' — already paid or nothing to recover'}

@@ -5,12 +5,15 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from infrastructure.dataset_orm import DatasetMetadataModel, DatasetStatus
+from infrastructure.storage import dataset_dir as configured_dataset_dir
 
 
 class DatasetLabService:
-    def __init__(self, db: Session, dataset_dir: str = "../dataset"):
+    def __init__(self, db: Session, dataset_dir: str | None = None):
         self.db = db
-        self.dataset_dir = dataset_dir
+        # The configured upload folder (infrastructure/storage.py) unless one is given,
+        # so tests and deployments never share the development app's files.
+        self.dataset_dir = dataset_dir or configured_dataset_dir()
         if not os.path.exists(self.dataset_dir):
             os.makedirs(self.dataset_dir)
 

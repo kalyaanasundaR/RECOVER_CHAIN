@@ -19,6 +19,9 @@ class CanonicalField(str, Enum):
     PAYMENT_METHOD = "PAYMENT_METHOD"
     OUTCOME = "OUTCOME"
     TARGET = "TARGET"
+    # A column naming each row's revenue domain (Phase 4). Only ever set by an explicit
+    # mapping confirmation; see application/domain_classification.py.
+    EVENT_CATEGORY = "EVENT_CATEGORY"
     UNKNOWN = "UNKNOWN"
 
 
@@ -942,6 +945,21 @@ class DatasetProfiler:
                     row_count = sum(1 for _ in f_in) - 1
                     if row_count < 0:
                         row_count = 0
+                duplicate_count = int(df.duplicated().sum() * (row_count / max(1, len(df))))
+                total_missing_values = int(df.isnull().sum().sum() * (row_count / max(1, len(df))))
+
+            elif file_path.lower().endswith(".zip") or file_type == "zip":
+                # A .zip holding exactly one CSV. Upload accepts .zip, but it used to fall
+                # into the Excel branch below and fail with the meaningless "No such
+                # keys(s): 'io.excel.zip.reader'". An archive with several members now
+                # fails with pandas' own clear "Multiple files found in ZIP file".
+                df = pd.read_csv(file_path, nrows=5000, compression="zip")
+                row_count = sum(
+                    len(chunk)
+                    for chunk in pd.read_csv(
+                        file_path, compression="zip", usecols=[0], chunksize=100_000
+                    )
+                )
                 duplicate_count = int(df.duplicated().sum() * (row_count / max(1, len(df))))
                 total_missing_values = int(df.isnull().sum().sum() * (row_count / max(1, len(df))))
 

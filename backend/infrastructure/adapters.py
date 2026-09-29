@@ -1,32 +1,25 @@
-from domain.models import ActionType
+from domain.models import ActionChannel, ActionType, action_channel
 
-# Actions that the simulated sandbox can "complete". Anything else FAILS loudly
-# rather than silently succeeding.
-_PAYMENT_ACTIONS = {ActionType.RETRY_PAYMENT.value, ActionType.RETRY_BILLING.value}
-_COMMS_ACTIONS = {
-    ActionType.SEND_PAYMENT_REMINDER.value,
-    ActionType.SEND_CHECKOUT_REMINDER.value,
-    ActionType.SEND_SUBSCRIPTION_REMINDER.value,
-    ActionType.SEND_INVOICE_REMINDER.value,
-    ActionType.SEND_PROMISE_REMINDER.value,
-    ActionType.SEND_PAYMENT_LINK.value,
-    ActionType.REQUEST_PAYMENT_METHOD_UPDATE.value,
-    ActionType.REQUEST_NEW_COMMITMENT.value,
-    ActionType.OFFER_CHECKOUT_ASSISTANCE.value,
-    ActionType.ESCALATE_COLLECTION.value,
-}
+# The simulated sandbox "completes" an action according to its explicit channel in
+# domain.models.ACTION_SPECS - never according to words in the action's name (a
+# `"REMINDER" in action` test used to decide this). Anything that is not a known
+# payment or communication action FAILS loudly rather than silently succeeding.
 
 
 class MockExecutionAdapter:
     def execute(self, execution_request: dict) -> dict:
         action = execution_request["action"]
+        try:
+            channel = action_channel(ActionType(action))
+        except ValueError:
+            channel = None
 
-        if action in _PAYMENT_ACTIONS:
+        if channel == ActionChannel.PAYMENT:
             return {
                 "adapter_status": "COMPLETED_SIMULATED",
                 "metadata": {"gateway": "sandbox", "message": "Payment retried successfully."},
             }
-        if action in _COMMS_ACTIONS or "REMINDER" in action:
+        if channel == ActionChannel.COMMUNICATION:
             return {
                 "adapter_status": "COMPLETED_SIMULATED",
                 "metadata": {"gateway": "mock_twilio", "message": "Message sent."},

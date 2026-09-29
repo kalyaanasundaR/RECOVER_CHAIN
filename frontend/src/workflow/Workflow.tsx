@@ -44,9 +44,18 @@ export default function Workflow() {
 
     useEffect(() => {
         try {
-            if (idx > 0 && ctx.importId)
-                sessionStorage.setItem(SAVE_KEY, JSON.stringify({ idx, ctx }));
-            else sessionStorage.removeItem(SAVE_KEY);
+            if (idx > 0 && ctx.importId) {
+                // Persist the run's position and identifiers, but NOT `snap` — the
+                // cached GET /system/cases/{id} response. useSnap only re-fetches when
+                // the case id changes, so a restored snapshot was treated as current
+                // however old it was, and the Recovery step decides whether to offer
+                // "Approve & execute" by reading snap.execution_record. Dropping it
+                // makes the restored run re-read the case from the backend, which is
+                // the authority. `build` is deliberately kept: S06Detection uses it to
+                // avoid re-running generate-cases.
+                const { snap: _snap, ...durable } = ctx;
+                sessionStorage.setItem(SAVE_KEY, JSON.stringify({ idx, ctx: durable }));
+            } else sessionStorage.removeItem(SAVE_KEY);
         } catch {
             /* ignore */
         }

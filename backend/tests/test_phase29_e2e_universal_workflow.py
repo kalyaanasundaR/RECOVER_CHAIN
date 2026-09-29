@@ -10,6 +10,7 @@ from api.main import app
 from application.dataset_intelligence import CanonicalField
 from application.recovery_predictor_ml import MLPaymentFailurePredictor
 from domain.models import ExecutionStatus, PolicyDecisionStatus, RiskCategory
+from infrastructure.storage import model_registry_dir
 
 client = TestClient(app)
 
@@ -207,7 +208,7 @@ def test_phase29_universal_bank_dataset_full_lifecycle(tmp_path):
     assert "actual_recovered_amount" not in reg_entry.get("canonical_feature_mapping", {})
 
     # 9. SHADOW INFERENCE VIA PREDICTOR & STRICT FEATURE CONTRACT
-    predictor = MLPaymentFailurePredictor(dataset_id=ds_id, registry_dir="ml/models/registry")
+    predictor = MLPaymentFailurePredictor(dataset_id=ds_id, registry_dir=model_registry_dir())
     assert predictor.model is not None
     assert predictor.metadata.get("task") == "payment-failure-risk"
 
@@ -365,12 +366,12 @@ def test_phase29_dataset_isolation_and_security(tmp_path):
     client.post(f"/datasets/{ds_a_id}/train")
 
     # Verify Dataset A has payment-failure-risk model
-    pred_a = MLPaymentFailurePredictor(dataset_id=ds_a_id, registry_dir="ml/models/registry")
+    pred_a = MLPaymentFailurePredictor(dataset_id=ds_a_id, registry_dir=model_registry_dir())
     assert pred_a.model is not None
     assert pred_a.metadata.get("task") == "payment-failure-risk"
 
     # Verify Dataset B has NO model (isolation)
-    pred_b = MLPaymentFailurePredictor(dataset_id=ds_b_id, registry_dir="ml/models/registry")
+    pred_b = MLPaymentFailurePredictor(dataset_id=ds_b_id, registry_dir=model_registry_dir())
     assert pred_b.model is None
 
     # Dataset B cannot generate cases using Dataset A's model
@@ -388,14 +389,14 @@ def test_phase29_dataset_isolation_and_security(tmp_path):
         "feature_columns": ["monetary_value"],
         "artifact_path": pred_a.metadata.get("artifact_path"),
     }
-    churn_meta_path = os.path.join("ml/models/registry", f"{ds_a_id}_churn_run_metadata.json")
+    churn_meta_path = os.path.join(model_registry_dir(), f"{ds_a_id}_churn_run_metadata.json")
     with open(churn_meta_path, "w") as f_meta:
         json.dump(churn_meta, f_meta)
 
     try:
         # Requesting payment-failure-risk must resolve ONLY payment-failure-risk, not the churn-prediction model
         pred_a_task = MLPaymentFailurePredictor(
-            dataset_id=ds_a_id, registry_dir="ml/models/registry"
+            dataset_id=ds_a_id, registry_dir=model_registry_dir()
         )
         assert pred_a_task.model is not None
         assert pred_a_task.metadata.get("task") == "payment-failure-risk"
@@ -409,13 +410,13 @@ def test_phase29_dataset_isolation_and_security(tmp_path):
             "feature_columns": ["monetary_value"],
             "artifact_path": pred_a.metadata.get("artifact_path"),
         }
-        dummy_meta_path = os.path.join("ml/models/registry", f"{ds_dummy_id}_run_metadata.json")
+        dummy_meta_path = os.path.join(model_registry_dir(), f"{ds_dummy_id}_run_metadata.json")
         with open(dummy_meta_path, "w") as f_d:
             json.dump(dummy_meta, f_d)
 
         try:
             pred_dummy = MLPaymentFailurePredictor(
-                dataset_id=ds_dummy_id, registry_dir="ml/models/registry"
+                dataset_id=ds_dummy_id, registry_dir=model_registry_dir()
             )
             assert pred_dummy.model is None  # Must NOT load churn-prediction model
         finally:
@@ -435,7 +436,7 @@ def test_phase29_dataset_isolation_and_security(tmp_path):
         "ds_nonexistent_12345",
     ]:
         pred_trav = MLPaymentFailurePredictor(
-            dataset_id=attack_payload, registry_dir="ml/models/registry"
+            dataset_id=attack_payload, registry_dir=model_registry_dir()
         )
         assert pred_trav.model is None
         assert pred_trav.is_legacy is False

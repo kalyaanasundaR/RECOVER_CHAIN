@@ -1,0 +1,51 @@
+case_id,scenario,amount_at_risk,consent_status,suppression_status,duplicate_of,already_recovered,payment_outcome_known,model_confidence,expected_decision,domain
+edge_A_consent_false_0,high_probability_no_consent,11142.82,OPTED_OUT,False,,False,True,HIGH,ContactPermission (policy DENIED) -> NO_AUTOMATED_ACTION,BROKEN_PROMISE
+edge_A_consent_false_1,high_probability_no_consent,10373.87,OPTED_OUT,False,,False,True,HIGH,ContactPermission (policy DENIED) -> NO_AUTOMATED_ACTION,FAILED_SUBSCRIPTION
+edge_A_consent_false_2,high_probability_no_consent,6810.02,OPTED_OUT,False,,False,True,HIGH,ContactPermission (policy DENIED) -> NO_AUTOMATED_ACTION,FAILED_SUBSCRIPTION
+edge_A_consent_false_3,high_probability_no_consent,11153.49,OPTED_OUT,False,,False,True,HIGH,ContactPermission (policy DENIED) -> NO_AUTOMATED_ACTION,CHECKOUT_ABANDONMENT
+edge_A_consent_false_4,high_probability_no_consent,5831.42,OPTED_OUT,False,,False,True,HIGH,ContactPermission (policy DENIED) -> NO_AUTOMATED_ACTION,BROKEN_PROMISE
+edge_B_suppressed_0,high_value_suppressed,22188.48,ALLOWED,True,,False,True,HIGH,ContactPermission (policy DENIED) -> SUPPRESSED,FAILED_PAYMENT
+edge_B_suppressed_1,high_value_suppressed,30775.77,ALLOWED,True,,False,True,HIGH,ContactPermission (policy DENIED) -> SUPPRESSED,BROKEN_PROMISE
+edge_B_suppressed_2,high_value_suppressed,20590.86,ALLOWED,True,,False,True,HIGH,ContactPermission (policy DENIED) -> SUPPRESSED,OVERDUE_INVOICE
+edge_B_suppressed_3,high_value_suppressed,34241.11,ALLOWED,True,,False,True,HIGH,ContactPermission (policy DENIED) -> SUPPRESSED,OVERDUE_INVOICE
+edge_B_suppressed_4,high_value_suppressed,28910.48,ALLOWED,True,,False,True,HIGH,ContactPermission (policy DENIED) -> SUPPRESSED,FAILED_SUBSCRIPTION
+edge_C_low_amount_high_prob_0,low_amount_high_probability,188.36,ALLOWED,False,,False,True,HIGH,ALL_RULES_PASSED -> PERMITTED (probability never bypasses the policy check itself),OVERDUE_INVOICE
+edge_C_low_amount_high_prob_1,low_amount_high_probability,112.77,ALLOWED,False,,False,True,HIGH,ALL_RULES_PASSED -> PERMITTED (probability never bypasses the policy check itself),BROKEN_PROMISE
+edge_C_low_amount_high_prob_2,low_amount_high_probability,139.47,ALLOWED,False,,False,True,HIGH,ALL_RULES_PASSED -> PERMITTED (probability never bypasses the policy check itself),FAILED_SUBSCRIPTION
+edge_C_low_amount_high_prob_3,low_amount_high_probability,200.38,ALLOWED,False,,False,True,HIGH,ALL_RULES_PASSED -> PERMITTED (probability never bypasses the policy check itself),BROKEN_PROMISE
+edge_C_low_amount_high_prob_4,low_amount_high_probability,173.44,ALLOWED,False,,False,True,HIGH,ALL_RULES_PASSED -> PERMITTED (probability never bypasses the policy check itself),OVERDUE_INVOICE
+edge_D_large_uncertain_0,large_amount_uncertain_probability,51002.73,ALLOWED,False,,False,True,LOW,FinancialAutomatedLimit -> ESCALATE (human review required),CHECKOUT_ABANDONMENT
+edge_D_large_uncertain_1,large_amount_uncertain_probability,69381.99,ALLOWED,False,,False,True,LOW,FinancialAutomatedLimit -> ESCALATE (human review required),FAILED_PAYMENT
+edge_D_large_uncertain_2,large_amount_uncertain_probability,57932.77,ALLOWED,False,,False,True,LOW,FinancialAutomatedLimit -> ESCALATE (human review required),FAILED_PAYMENT
+edge_D_large_uncertain_3,large_amount_uncertain_probability,44252.04,ALLOWED,False,,False,True,LOW,FinancialAutomatedLimit -> ESCALATE (human review required),CHECKOUT_ABANDONMENT
+edge_D_large_uncertain_4,large_amount_uncertain_probability,51838.91,ALLOWED,False,,False,True,LOW,FinancialAutomatedLimit -> ESCALATE (human review required),FAILED_SUBSCRIPTION
+edge_E_duplicate_0,duplicate_obligation,4100.75,ALLOWED,False,edge_E_original,False,True,HIGH,"deduplicated at ingestion (event_fingerprint match) -> DUPLICATE_BLOCK, no new case",CHECKOUT_ABANDONMENT
+edge_E_duplicate_1,duplicate_obligation,3051.47,ALLOWED,False,edge_E_original,False,True,HIGH,"deduplicated at ingestion (event_fingerprint match) -> DUPLICATE_BLOCK, no new case",FAILED_SUBSCRIPTION
+edge_E_duplicate_2,duplicate_obligation,2844.86,ALLOWED,False,edge_E_original,False,True,HIGH,"deduplicated at ingestion (event_fingerprint match) -> DUPLICATE_BLOCK, no new case",FAILED_PAYMENT
+edge_E_duplicate_3,duplicate_obligation,3210.54,ALLOWED,False,edge_E_original,False,True,HIGH,"deduplicated at ingestion (event_fingerprint match) -> DUPLICATE_BLOCK, no new case",BROKEN_PROMISE
+edge_E_duplicate_4,duplicate_obligation,2764.89,ALLOWED,False,edge_E_original,False,True,HIGH,"deduplicated at ingestion (event_fingerprint match) -> DUPLICATE_BLOCK, no new case",BROKEN_PROMISE
+edge_F_already_recovered_0,already_recovered,1060.05,ALLOWED,False,,True,True,HIGH,ObligationSettled -> DENIED -> NO_ACTION_ALREADY_RECOVERED,FAILED_SUBSCRIPTION
+edge_F_already_recovered_1,already_recovered,1069.11,ALLOWED,False,,True,True,HIGH,ObligationSettled -> DENIED -> NO_ACTION_ALREADY_RECOVERED,BROKEN_PROMISE
+edge_F_already_recovered_2,already_recovered,1194.57,ALLOWED,False,,True,True,HIGH,ObligationSettled -> DENIED -> NO_ACTION_ALREADY_RECOVERED,CHECKOUT_ABANDONMENT
+edge_F_already_recovered_3,already_recovered,1073.38,ALLOWED,False,,True,True,HIGH,ObligationSettled -> DENIED -> NO_ACTION_ALREADY_RECOVERED,FAILED_SUBSCRIPTION
+edge_F_already_recovered_4,already_recovered,1309.22,ALLOWED,False,,True,True,HIGH,ObligationSettled -> DENIED -> NO_ACTION_ALREADY_RECOVERED,FAILED_SUBSCRIPTION
+edge_G_outcome_unknown_0,payment_outcome_unknown,5192.07,ALLOWED,False,,False,False,MEDIUM,"VERIFY_BEFORE_ACTION (case stays in verification, not marked recovered without an authoritative outcome event)",CHECKOUT_ABANDONMENT
+edge_G_outcome_unknown_1,payment_outcome_unknown,3284.59,ALLOWED,False,,False,False,MEDIUM,"VERIFY_BEFORE_ACTION (case stays in verification, not marked recovered without an authoritative outcome event)",CHECKOUT_ABANDONMENT
+edge_G_outcome_unknown_2,payment_outcome_unknown,3461.56,ALLOWED,False,,False,False,MEDIUM,"VERIFY_BEFORE_ACTION (case stays in verification, not marked recovered without an authoritative outcome event)",BROKEN_PROMISE
+edge_G_outcome_unknown_3,payment_outcome_unknown,3571.31,ALLOWED,False,,False,False,MEDIUM,"VERIFY_BEFORE_ACTION (case stays in verification, not marked recovered without an authoritative outcome event)",BROKEN_PROMISE
+edge_G_outcome_unknown_4,payment_outcome_unknown,5010.08,ALLOWED,False,,False,False,MEDIUM,"VERIFY_BEFORE_ACTION (case stays in verification, not marked recovered without an authoritative outcome event)",FAILED_PAYMENT
+edge_H_low_confidence_ood_0,low_confidence_out_of_distribution,9803.23,ALLOWED,False,,False,True,LOW,"anomaly-flagged (application/anomaly_detection.py) -> ESCALATE_OR_REVIEW, model probability alone does not authorize",FAILED_PAYMENT
+edge_H_low_confidence_ood_1,low_confidence_out_of_distribution,11562.38,ALLOWED,False,,False,True,LOW,"anomaly-flagged (application/anomaly_detection.py) -> ESCALATE_OR_REVIEW, model probability alone does not authorize",FAILED_PAYMENT
+edge_H_low_confidence_ood_2,low_confidence_out_of_distribution,9280.39,ALLOWED,False,,False,True,LOW,"anomaly-flagged (application/anomaly_detection.py) -> ESCALATE_OR_REVIEW, model probability alone does not authorize",FAILED_PAYMENT
+edge_H_low_confidence_ood_3,low_confidence_out_of_distribution,12208.74,ALLOWED,False,,False,True,LOW,"anomaly-flagged (application/anomaly_detection.py) -> ESCALATE_OR_REVIEW, model probability alone does not authorize",OVERDUE_INVOICE
+edge_H_low_confidence_ood_4,low_confidence_out_of_distribution,9917.05,ALLOWED,False,,False,True,LOW,"anomaly-flagged (application/anomaly_detection.py) -> ESCALATE_OR_REVIEW, model probability alone does not authorize",FAILED_SUBSCRIPTION
+edge_I_repeated_attempts_0,multiple_recent_recovery_attempts,1805.1,ALLOWED,False,,False,True,HIGH,PaymentMaxRetries / PaymentRetryCooldown -> DENIED -> SUPPRESS_OR_COOLDOWN,FAILED_PAYMENT
+edge_I_repeated_attempts_1,multiple_recent_recovery_attempts,2389.29,ALLOWED,False,,False,True,HIGH,PaymentMaxRetries / PaymentRetryCooldown -> DENIED -> SUPPRESS_OR_COOLDOWN,OVERDUE_INVOICE
+edge_I_repeated_attempts_2,multiple_recent_recovery_attempts,1728.54,ALLOWED,False,,False,True,HIGH,PaymentMaxRetries / PaymentRetryCooldown -> DENIED -> SUPPRESS_OR_COOLDOWN,OVERDUE_INVOICE
+edge_I_repeated_attempts_3,multiple_recent_recovery_attempts,2558.43,ALLOWED,False,,False,True,HIGH,PaymentMaxRetries / PaymentRetryCooldown -> DENIED -> SUPPRESS_OR_COOLDOWN,FAILED_SUBSCRIPTION
+edge_I_repeated_attempts_4,multiple_recent_recovery_attempts,2199.95,ALLOWED,False,,False,True,HIGH,PaymentMaxRetries / PaymentRetryCooldown -> DENIED -> SUPPRESS_OR_COOLDOWN,FAILED_PAYMENT
+edge_J_policy_prohibits_0,high_probability_policy_prohibited,7432.95,ALLOWED,False,,False,True,HIGH,StopRule / ActionDomainApplicability -> DENIED -> POLICY_BLOCK (prediction never overrides deterministic policy),CHECKOUT_ABANDONMENT
+edge_J_policy_prohibits_1,high_probability_policy_prohibited,4373.58,ALLOWED,False,,False,True,HIGH,StopRule / ActionDomainApplicability -> DENIED -> POLICY_BLOCK (prediction never overrides deterministic policy),FAILED_PAYMENT
+edge_J_policy_prohibits_2,high_probability_policy_prohibited,6203.34,ALLOWED,False,,False,True,HIGH,StopRule / ActionDomainApplicability -> DENIED -> POLICY_BLOCK (prediction never overrides deterministic policy),CHECKOUT_ABANDONMENT
+edge_J_policy_prohibits_3,high_probability_policy_prohibited,7145.67,ALLOWED,False,,False,True,HIGH,StopRule / ActionDomainApplicability -> DENIED -> POLICY_BLOCK (prediction never overrides deterministic policy),BROKEN_PROMISE
+edge_J_policy_prohibits_4,high_probability_policy_prohibited,7866.5,ALLOWED,False,,False,True,HIGH,StopRule / ActionDomainApplicability -> DENIED -> POLICY_BLOCK (prediction never overrides deterministic policy),BROKEN_PROMISE

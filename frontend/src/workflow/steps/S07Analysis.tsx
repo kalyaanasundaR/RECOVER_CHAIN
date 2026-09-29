@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { StepProps } from '../types';
 import { useSnap } from './useSnap';
 import { Spinner, ErrorNote, Note, BigStat } from '../../ui';
-import { money, moneyMaybe, pct, WHY_FAILED, CATEGORY } from '../../lib/format';
+import { money, moneyMaybe, pct, WHY_FAILED, CATEGORY, CONFIDENCE_LABEL } from '../../lib/format';
 
 export default function S07Analysis({ ctx, patch, next, setAction }: StepProps) {
     const { snap, loading, err, refresh } = useSnap(ctx, patch);
@@ -120,7 +120,12 @@ export default function S07Analysis({ ctx, patch, next, setAction }: StepProps) 
                     <div className="mt-2 text-lg font-medium text-sky-300">
                         {pred ? pct(pred.recovery_probability) : '—'}
                     </div>
-                    <div className="mt-1 text-sm text-[--muted]">advisory estimate</div>
+                    <div className="mt-1 text-sm text-[--muted]">
+                        advisory estimate
+                        {pred?.confidence_tier && (
+                            <> · {CONFIDENCE_LABEL[pred.confidence_tier] || pred.confidence_tier}</>
+                        )}
+                    </div>
                 </div>
                 <div>
                     <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[--faint]">
@@ -134,6 +139,30 @@ export default function S07Analysis({ ctx, patch, next, setAction }: StepProps) 
                     <div className="mt-1 text-sm text-[--muted]">amount × probability</div>
                 </div>
             </div>
+
+            {pred?.explanation && pred.explanation.length > 0 && (
+                <div className="mt-8">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[--faint]">
+                        Why the model estimated this
+                    </div>
+                    <ul className="mt-2 space-y-1 text-sm text-[--muted]">
+                        {pred.explanation
+                            .filter((c: any) => c.contribution !== null && Math.abs(c.contribution) >= 0.005)
+                            .slice(0, 3)
+                            .map((c: any) => (
+                                <li key={c.feature}>
+                                    <span className="text-[--ink]">{c.feature}</span>{' '}
+                                    {c.direction === 'increased' ? 'increased' : 'decreased'} the
+                                    estimate
+                                </li>
+                            ))}
+                    </ul>
+                    <p className="mt-1 text-xs text-[--faint]">
+                        Model association only — not a claim about what actually caused this
+                        customer’s behaviour.
+                    </p>
+                </div>
+            )}
 
             <div className="mt-10">
                 <Note>

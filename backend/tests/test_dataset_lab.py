@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 from api.main import app
 from infrastructure.db import engine, get_db
+from infrastructure.storage import dataset_dir
 
 client = TestClient(app)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -23,9 +24,9 @@ app.dependency_overrides[get_db] = override_get_db
 
 
 def test_sync_datasets():
-    os.makedirs("../dataset", exist_ok=True)
+    os.makedirs(dataset_dir(), exist_ok=True)
     fname = f"test_dummy_{uuid.uuid4().hex}.csv"
-    with open(f"../dataset/{fname}", "w") as f:
+    with open(os.path.join(dataset_dir(), fname), "w") as f:
         f.write("a,b,c\n1,2,3")
 
     res = client.post("/datasets/sync")

@@ -62,7 +62,16 @@ export default function Frame({
                     <div>{busy && <Spinner label={busy} />}</div>
                     <div className="flex items-center gap-3">
                         {action?.secondary && (
-                            <Button variant="ghost" onClick={() => run(action.secondary!.onClick)}>
+                            /* Disabled while a request is in flight, like the primary.
+                               On the Recovery step the primary is "Approve & execute"
+                               and the secondary is "Reject": leaving it live allowed a
+                               rejection to be fired into the same case while the
+                               approval-and-execution chain was still running. */
+                            <Button
+                                variant="ghost"
+                                disabled={!!busy}
+                                onClick={() => run(action.secondary!.onClick)}
+                            >
                                 {action.secondary.label}
                             </Button>
                         )}

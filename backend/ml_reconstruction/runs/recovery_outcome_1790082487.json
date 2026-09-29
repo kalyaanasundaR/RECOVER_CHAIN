@@ -1,0 +1,201 @@
+{
+  "dataset": "recovery_outcome (synthetic)",
+  "features": [
+    "amount_at_risk",
+    "age_of_obligation",
+    "customer_tenure",
+    "prior_payment_success_rate",
+    "prior_recovery_rate",
+    "prior_late_rate",
+    "number_of_previous_failed_attempts",
+    "number_of_previous_recoveries",
+    "average_days_to_payment",
+    "amount_vs_customer_average",
+    "invoice_age",
+    "payment_method_valid",
+    "customer_engagement",
+    "recent_login",
+    "reminder_history",
+    "previous_contact_success",
+    "dispute_indicator",
+    "suppression_status",
+    "domain",
+    "payment_method",
+    "account_status",
+    "consent_status",
+    "historical_recovery_behavior"
+  ],
+  "target": "recovery_success",
+  "results": {
+    "baseline_0_majority": {
+      "test_metrics": {
+        "accuracy": 0.8320441988950277,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "confusion_matrix": {
+          "tn": 753,
+          "fp": 0,
+          "fn": 152,
+          "tp": 0
+        },
+        "positive_rate": 0.16795580110497238,
+        "roc_auc": 0.5,
+        "pr_auc": 0.16795580110497238,
+        "brier_score": 0.16795580110497238,
+        "log_loss": 2.3203959754817083
+      }
+    },
+    "baseline_1_historical_rate": {
+      "test_metrics": {
+        "accuracy": 0.7259668508287292,
+        "precision": 0.32608695652173914,
+        "recall": 0.5921052631578947,
+        "f1": 0.4205607476635514,
+        "confusion_matrix": {
+          "tn": 567,
+          "fp": 186,
+          "fn": 62,
+          "tp": 90
+        },
+        "positive_rate": 0.16795580110497238,
+        "roc_auc": 0.7197918850912141,
+        "pr_auc": 0.3602007180669888,
+        "brier_score": 0.18832216207268135,
+        "log_loss": 0.5787036839034462
+      }
+    },
+    "logistic_regression": {
+      "calibrated": true,
+      "training_time_sec": 0.125,
+      "validation_metrics": {
+        "accuracy": 0.8373893805309734,
+        "precision": 0.5824175824175825,
+        "recall": 0.3271604938271605,
+        "f1": 0.4189723320158103,
+        "confusion_matrix": {
+          "tn": 704,
+          "fp": 38,
+          "fn": 109,
+          "tp": 53
+        },
+        "positive_rate": 0.17920353982300885,
+        "roc_auc": 0.8632657815047753,
+        "pr_auc": 0.5232513321657931,
+        "brier_score": 0.1083295209895493,
+        "log_loss": 0.3360155662180452
+      },
+      "test_metrics": {
+        "accuracy": 0.8651933701657458,
+        "precision": 0.6785714285714286,
+        "recall": 0.375,
+        "f1": 0.4830508474576271,
+        "confusion_matrix": {
+          "tn": 726,
+          "fp": 27,
+          "fn": 95,
+          "tp": 57
+        },
+        "positive_rate": 0.16795580110497238,
+        "roc_auc": 0.8447350947088839,
+        "pr_auc": 0.5613561341157215,
+        "brier_score": 0.10148087868992017,
+        "log_loss": 0.32954518052561155
+      }
+    },
+    "random_forest": {
+      "calibrated": true,
+      "training_time_sec": 0.884,
+      "validation_metrics": {
+        "accuracy": 0.8307522123893806,
+        "precision": 0.5463917525773195,
+        "recall": 0.3271604938271605,
+        "f1": 0.4092664092664093,
+        "confusion_matrix": {
+          "tn": 698,
+          "fp": 44,
+          "fn": 109,
+          "tp": 53
+        },
+        "positive_rate": 0.17920353982300885,
+        "roc_auc": 0.8407207746830389,
+        "pr_auc": 0.5059424250508721,
+        "brier_score": 0.10932217594406175,
+        "log_loss": 0.3498091696579071
+      },
+      "test_metrics": {
+        "accuracy": 0.8718232044198895,
+        "precision": 0.7307692307692307,
+        "recall": 0.375,
+        "f1": 0.4956521739130435,
+        "confusion_matrix": {
+          "tn": 732,
+          "fp": 21,
+          "fn": 95,
+          "tp": 57
+        },
+        "positive_rate": 0.16795580110497238,
+        "roc_auc": 0.8458097434822115,
+        "pr_auc": 0.5609712236409445,
+        "brier_score": 0.10077578960076843,
+        "log_loss": 0.330557300002674
+      }
+    },
+    "xgboost": {
+      "calibrated": true,
+      "training_time_sec": 1.816,
+      "validation_metrics": {
+        "accuracy": 0.8362831858407079,
+        "precision": 0.5686274509803921,
+        "recall": 0.35802469135802467,
+        "f1": 0.4393939393939394,
+        "confusion_matrix": {
+          "tn": 698,
+          "fp": 44,
+          "fn": 104,
+          "tp": 58
+        },
+        "positive_rate": 0.17920353982300885,
+        "roc_auc": 0.8429835945559216,
+        "pr_auc": 0.4928157643310952,
+        "brier_score": 0.11147212160185277,
+        "log_loss": 0.354253935104067
+      },
+      "test_metrics": {
+        "accuracy": 0.8629834254143647,
+        "precision": 0.6590909090909091,
+        "recall": 0.3815789473684211,
+        "f1": 0.48333333333333334,
+        "confusion_matrix": {
+          "tn": 723,
+          "fp": 30,
+          "fn": 94,
+          "tp": 58
+        },
+        "positive_rate": 0.16795580110497238,
+        "roc_auc": 0.8401918641224576,
+        "pr_auc": 0.5671374569812583,
+        "brier_score": 0.10295998479016252,
+        "log_loss": 0.3385581927773559
+      }
+    },
+    "_selection": {
+      "criterion": "validation PR-AUC",
+      "ranked": [
+        [
+          "logistic_regression",
+          0.5232513321657931
+        ],
+        [
+          "random_forest",
+          0.5059424250508721
+        ],
+        [
+          "xgboost",
+          0.4928157643310952
+        ]
+      ],
+      "selected_model": "logistic_regression"
+    }
+  }
+}

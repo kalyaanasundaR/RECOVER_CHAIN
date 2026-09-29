@@ -16,6 +16,20 @@ _TEST_DB_URL = os.getenv(
 )
 os.environ["DATABASE_URL"] = _TEST_DB_URL
 
+# Test storage isolation. Uploaded dataset files and trained model artefacts go to a
+# throwaway folder as well. The suite used to share the development app's ../dataset
+# and ml/models/registry folders, and its dataset sync, upload pruning and orphan-model
+# sweep deleted the development app's files. Always overridden (never setdefault), and
+# removed at the end of the session.
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
+
+_TEST_STORAGE_ROOT = tempfile.mkdtemp(prefix="recoverchain_test_storage_")
+os.environ["RECOVERCHAIN_DATASET_DIR"] = os.path.join(_TEST_STORAGE_ROOT, "dataset")
+os.environ["RECOVERCHAIN_MODEL_REGISTRY_DIR"] = os.path.join(_TEST_STORAGE_ROOT, "registry")
+os.makedirs(os.environ["RECOVERCHAIN_DATASET_DIR"], exist_ok=True)
+os.makedirs(os.environ["RECOVERCHAIN_MODEL_REGISTRY_DIR"], exist_ok=True)
+
 # The ML quality gate (ml_training) would reject the deliberately tiny fixtures
 # that plumbing tests train. Disable it by default for the suite; the dedicated
 # gate test re-enables it explicitly.
@@ -48,6 +62,7 @@ def _test_database():
     yield
     Base.metadata.drop_all(bind=engine)
     engine.dispose()
+    shutil.rmtree(_TEST_STORAGE_ROOT, ignore_errors=True)
     if _TEST_DB_URL.startswith("sqlite:///"):
         try:
             os.remove(os.path.abspath(_TEST_DB_FILE))
@@ -59,11 +74,28 @@ def _test_database():
 def _bypass_api_key(_test_database):
     """Most tests don't care about auth. Override the API-key dependency for the
     whole suite; test_auth.py clears this to exercise the 401/403 path."""
+    from api.access import (
+        require_admin,
+        require_operator,
+        require_principal,
+        require_reviewer,
+    )
     from api.main import app, verify_api_key
+    from api.principals import Principal
 
-    app.dependency_overrides[verify_api_key] = lambda: "test-bypass"
+    admin = Principal("test-principal", "ADMIN", "test-bypass")
+    reviewer = Principal("test-reviewer", "REVIEWER", "test-bypass")
+    overrides = {
+        verify_api_key: lambda: "test-bypass",
+        require_principal: lambda: admin,
+        require_operator: lambda: admin,
+        require_reviewer: lambda: reviewer,
+        require_admin: lambda: admin,
+    }
+    app.dependency_overrides.update(overrides)
     yield
-    app.dependency_overrides.pop(verify_api_key, None)
+    for dep in overrides:
+        app.dependency_overrides.pop(dep, None)
 
 
 @pytest.fixture(autouse=True)

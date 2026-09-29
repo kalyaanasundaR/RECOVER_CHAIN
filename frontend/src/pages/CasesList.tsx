@@ -40,10 +40,13 @@ export default function CasesList() {
             cases.filter((c) => {
                 const text = `${c.customer_id} ${c.case_id}`.toLowerCase();
                 if (q && !text.includes(q.toLowerCase())) return false;
-                if (filter === 'need') return c.policy_status === 'ESCALATE';
-                if (filter === 'done') return !!c.outcome_status;
+                // A stopped case is halted, not in progress, and it is not waiting on
+                // anyone's approval — it belongs with the finished work.
+                const stopped = c.current_state === 'STOPPED';
+                if (filter === 'need') return !stopped && c.policy_status === 'ESCALATE';
+                if (filter === 'done') return stopped || !!c.outcome_status;
                 if (filter === 'running')
-                    return !c.outcome_status && c.policy_status !== 'ESCALATE';
+                    return !stopped && !c.outcome_status && c.policy_status !== 'ESCALATE';
                 return true;
             }),
         [cases, filter, q],
@@ -114,7 +117,7 @@ export default function CasesList() {
                                                 </Link>
                                             </td>
                                             <td className="py-3 pr-4 tabular-nums text-slate-300">
-                                                {money(c.amount_at_risk)}
+                                                {money(c.amount_at_risk, c.currency)}
                                             </td>
                                             <td className="py-3 pr-4">
                                                 <Pill tone={r.tone}>{r.label}</Pill>
@@ -129,7 +132,14 @@ export default function CasesList() {
                                                     : '—'}
                                             </td>
                                             <td className="py-3 pr-4">
-                                                <Pill tone={s.tone}>{s.label}</Pill>
+                                                {/* A halted case must not advertise the
+                                                    policy's last verdict as if recovery
+                                                    were still running. */}
+                                                {c.current_state === 'STOPPED' ? (
+                                                    <Pill tone="gray">Stopped</Pill>
+                                                ) : (
+                                                    <Pill tone={s.tone}>{s.label}</Pill>
+                                                )}
                                             </td>
                                             <td className="py-3 pr-4">
                                                 {c.outcome_status ? (
@@ -140,7 +150,7 @@ export default function CasesList() {
                                             </td>
                                             <td className="py-3 tabular-nums text-emerald-300">
                                                 {c.actual_amount_recovered ? (
-                                                    money(c.actual_amount_recovered)
+                                                    money(c.actual_amount_recovered, c.currency)
                                                 ) : (
                                                     <span className="text-slate-600">—</span>
                                                 )}

@@ -179,7 +179,34 @@ def test_ingest_event_api():
     audits = resp11.json()
     assert any(a["evidence"].get("action") == "execution" for a in audits)
 
-    # Test Phase 11 Outcome Verification API
+    # Test Phase 11 Outcome Verification API. Verification is a READ of whatever an
+    # authoritative outcome event has already reconciled (Phase 5) - it does not itself
+    # decide anything, so first there must be a real settlement for this obligation.
+    resp_before_outcome = client.post(
+        f"/cases/{case_id}/verify", json={"external_reference": "anything"}
+    )
+    assert resp_before_outcome.status_code == 200
+    assert resp_before_outcome.json()["status"] == "PENDING_VERIFICATION"
+
+    resp_settle = client.post(
+        "/outcomes",
+        headers={"X-API-Key": "test-api-key"},
+        json={
+            "external_system": "stripe",
+            "external_event_id": "ch_settlement_1",
+            "domain": "FAILED_PAYMENT",
+            "outcome_type": "PAYMENT_SETTLED",
+            "customer_id": "cust_api_1",
+            "reference_id": "tx_api_999",
+            "amount": 105.00,
+            "currency": "USD",
+            "occurred_at": "2026-01-01T00:00:00Z",
+        },
+    )
+    assert resp_settle.status_code == 200, resp_settle.text
+    assert resp_settle.json()["match_status"] == "MATCHED"
+    assert resp_settle.json()["case_id"] == case_id
+
     resp_verify = client.post(f"/cases/{case_id}/verify", json={"external_reference": "sim_full"})
     assert resp_verify.status_code == 200
     verify_data = resp_verify.json()
@@ -191,8 +218,8 @@ def test_ingest_event_api():
     assert resp_case8.json()["outcome_status"] == verify_data["status"]
     assert resp_case8.json()["actual_amount_recovered"] == verify_data["actual_amount_recovered"]
 
-    # Test Audit Trail includes verification
+    # Test Audit Trail includes the outcome reconciliation
     resp12 = client.get(f"/cases/{case_id}/audit")
     assert resp12.status_code == 200
     audits = resp12.json()
-    assert any(a["evidence"].get("action") == "verification" for a in audits)
+    assert any(a["evidence"].get("action") == "outcome_reconciled" for a in audits)

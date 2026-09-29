@@ -1,0 +1,22 @@
+{
+  "dataset_id": "guide_demo",
+  "dataset_version": "v1",
+  "generation_timestamp": "2026-09-23T07:04:22.582381+00:00",
+  "random_seed": 20260922,
+  "row_count": 147,
+  "column_count": 5,
+  "columns": [
+    "customer_id",
+    "amount",
+    "invoice_date",
+    "status",
+    "reason"
+  ],
+  "target_column": null,
+  "description": "Compact (150-row), live-app-uploadable dataset in the real ingestion schema (customer_id, amount, invoice_date, status, reason). Exercises every pipeline stage: already-paid rows skipped at ingestion, small failed payments auto-approved, large failed payments escalated, one exact-duplicate pair and, on re-ingestion of the same file, correctly recognized as a duplicate (verified live: duplicate_event=127, cases_created=0). All four recognized failure reasons represented.",
+  "xlsx_checksum_sha256": "fc6f0790daaf623256c3bc37fffa816acbe50a89b8d7ba6edc2a82e8841e9c2c",
+  "csv_checksum_sha256": "49e06f27f89ad73293e8612647f6400d52862747773c5aa7bc865035b80517b9",
+  "validation_problems": [],
+  "validation_status": "PASSED",
+  "intended_use": "DEMONSTRATION -- upload through the running app's own UI."
+}

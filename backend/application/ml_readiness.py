@@ -122,6 +122,17 @@ class MLReadinessAnalyzer:
                 exclusion_reasons[c_name] = "TARGET"
                 continue
 
+            # Phase 10: a column that IS the train/validation/test partition label
+            # (exactly what application.ml_training.MLTrainingEngine._split_data
+            # itself reads and writes) must never be treated as a feature - a live
+            # inference request has no such column at all, and using it as a
+            # feature at training time only pollutes the model with a partition
+            # indicator, never a real predictive signal.
+            if c_name.strip().lower() == "split":
+                excluded_columns.append(c_name)
+                exclusion_reasons[c_name] = "DATA_PARTITION_LABEL"
+                continue
+
             if c_name in leakage_map:
                 excluded_columns.append(c_name)
                 exclusion_reasons[c_name] = (

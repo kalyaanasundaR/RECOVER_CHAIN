@@ -41,10 +41,10 @@ export default function S01Upload({ patch, next, setAction }: StepProps) {
         setAction(
             file
                 ? {
-                      label: 'Analyze data →',
-                      busy: 'Reading and profiling your file…',
-                      onClick: () => analyze(file),
-                  }
+                    label: 'Analyze data →',
+                    busy: 'Reading and profiling your file…',
+                    onClick: () => analyze(file),
+                }
                 : null,
         );
     }, [file]);
@@ -70,17 +70,16 @@ export default function S01Upload({ patch, next, setAction }: StepProps) {
                     const f = e.dataTransfer.files?.[0];
                     if (f) setFile(f);
                 }}
-                className={`mt-8 flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed p-12 text-center transition-colors ${
-                    drag
-                        ? 'border-[--accent] bg-sky-500/[0.06]'
-                        : 'border-[--line] hover:border-slate-600'
-                }`}
+                className={`mt-8 flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed p-12 text-center transition-colors ${drag
+                    ? 'border-[--accent] bg-sky-500/[0.06]'
+                    : 'border-[--line] hover:border-slate-600'
+                    }`}
             >
                 <UploadCloud className="text-[--muted]" size={28} />
                 <span className="font-medium">
                     {file ? file.name : 'Drop a file here, or click to choose'}
                 </span>
-                <span className="text-xs text-[--faint]">CSV, Parquet, XLSX or ZIP</span>
+                <span className="text-xs text-[--faint]">XLSX</span>
                 <input
                     ref={input}
                     type="file"
@@ -105,7 +104,7 @@ export default function S01Upload({ patch, next, setAction }: StepProps) {
 
             <div className="mt-8">
                 <Note>
-                    Formats accepted by the current backend: CSV, Parquet, XLSX, ZIP. Max
+                    Formats accepted by the current backend: XLSX. Max
                     500&nbsp;MB.
                 </Note>
             </div>

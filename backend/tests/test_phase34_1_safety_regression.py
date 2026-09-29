@@ -122,6 +122,9 @@ def test_malformed_dataset_case_generation_safety_and_counters():
             row_count=11,
             column_count=6,
             status=DatasetStatus.COMPLETED,
+            # Phase 4: nothing in these columns identifies the revenue domain, and an
+            # undeclared domain is no longer assumed to be a failed payment.
+            declared_domain="FAILED_PAYMENT",
             recoverchain_signals=[
                 {
                     "original_column": "client_ref",

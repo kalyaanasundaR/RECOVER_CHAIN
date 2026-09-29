@@ -63,3 +63,8 @@ backend/.env
 .DS_Store
 Thumbs.db
 *.log
+
+# ---- Office lock files ----
+~$*.xlsx
+~$*.xls
+~$*.docx
