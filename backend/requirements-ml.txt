@@ -12,5 +12,5 @@ scikit-learn==1.9.0
 scipy==1.18.1
 statsmodels==0.15.0
 threadpoolctl==3.6.0
-uuid_utils==0.17.0
+uuid_utils==1.0.0
 xgboost==3.4.1
