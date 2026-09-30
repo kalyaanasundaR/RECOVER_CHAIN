@@ -43,5 +43,5 @@ typing_extensions==4.16.0
 tzdata==2026.3
 urllib3==2.7.0
 uvicorn==0.52.4
-websockets==16.1.1
+websockets==17.1
 zstandard==0.25.0
